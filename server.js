@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-// Environment Variablen laden
 dotenv.config();
 
 const app = express();
@@ -22,29 +21,43 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(() => console.log("✅ Mit MongoDB verbunden"))
 .catch(err => console.error("❌ MongoDB Fehler:", err.message));
 
-// ----------------- Auth-Route -----------------
-app.post("/api/auth/login", (req, res) => {
-  const { username, password } = req.body;
-
-  // Dummy-Login (später DB-Abfrage)
-  if(username === "admin" && password === "12345") {
-    const token = jwt.sign(
-      { username }, 
-      process.env.JWT_SECRET || "secret", 
-      { expiresIn: "1h" }
-    );
-    return res.json({ token });
-  }
-
-  res.status(401).json({ error: "Ungültige Anmeldedaten" });
+// ----------------- User Schema -----------------
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, default: "Officer" } // z.B. Chief, Co-Chief, Officer
 });
 
-// ----------------- Beispiel-Mitarbeiter-Route -----------------
-app.get("/api/employees", (req, res) => {
-  res.json([
-    { name: "Max Mustermann", rank: "Chief" },
-    { name: "Erika Musterfrau", rank: "Officer" }
-  ]);
+const User = mongoose.model("User", userSchema);
+
+// ----------------- Auth-Route -----------------
+app.post("/api/auth/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const user = await User.findOne({ username });
+    if(!user) return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if(!valid) return res.status(401).json({ error: "Ungültige Anmeldedaten" });
+
+    const token = jwt.sign(
+      { id: user._id, username: user.username, role: user.role },
+      process.env.JWT_SECRET || "secret",
+      { expiresIn: "1h" }
+    );
+
+    res.json({ token });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+// ----------------- Beispielroute: Mitarbeiter -----------------
+app.get("/api/employees", async (req, res) => {
+  const employees = await User.find({}, { password: 0 }); // Passwort nicht zurückgeben
+  res.json(employees);
 });
 
 // ----------------- Test-Route -----------------
