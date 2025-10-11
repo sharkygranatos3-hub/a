@@ -1,24 +1,34 @@
 import express from "express";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
 const router = express.Router();
 
-/**
- * 🔐 POST /api/auth/login
- * Test-Login (später mit Datenbank ersetzen)
- */
-router.post("/login", (req, res) => {
-  const { username, password } = req.body;
+// Login
+router.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if(!username || !password) return res.status(400).json({ message: "Benutzername und Passwort erforderlich" });
 
-  // Beispielbenutzer
-  if (username === "admin" && password === "12345") {
-    return res.json({
-      token: "dummy-token-admin",
-      rank: "Chief",
-      username: "admin"
-    });
+    const user = await User.findOne({ username });
+    if(!user) return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
+    if(!user.active) return res.status(403).json({ message: "Benutzerkonto gesperrt" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if(!isMatch) return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
+
+    const token = jwt.sign(
+      { id: user._id, username: user.username, rank: user.rank },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    res.json({ token, rank: user.rank });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Serverfehler" });
   }
-
-  // Falls falsche Eingabe
-  return res.status(401).json({ message: "Ungültige Anmeldedaten." });
 });
 
 export default router;
