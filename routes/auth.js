@@ -1,30 +1,31 @@
 import express from "express";
 import User from "../models/User.js";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-// Login
+// Login (vorerst Klartext-Passwort)
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    if(!username || !password) return res.status(400).json({ message: "Benutzername und Passwort erforderlich" });
+    if (!username || !password)
+      return res.status(400).json({ message: "Benutzername und Passwort erforderlich" });
 
     const user = await User.findOne({ username });
-    if(!user) return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
-    if(!user.active) return res.status(403).json({ message: "Benutzerkonto gesperrt" });
+    if (!user) return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
+    if (!user.active) return res.status(403).json({ message: "Benutzerkonto gesperrt" });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if(!isMatch) return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
+    // Temporär Klartext-Passwort prüfen
+    if (user.password !== password)
+      return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, rank: user.rank },
+      { id: user._id, username: user.username, rank: user.rang }, // 'rang' aus DB
       process.env.JWT_SECRET,
       { expiresIn: "8h" }
     );
 
-    res.json({ token, rank: user.rank });
+    res.json({ token, rank: user.rang });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Serverfehler" });
