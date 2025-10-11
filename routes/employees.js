@@ -1,80 +1,52 @@
-import express from "express";
-import User from "../models/User.js";
-import jwt from "jsonwebtoken";
-
-const router = express.Router();
-
-// Middleware Auth
-const auth = (req, res, next) => {
-  const token = req.headers["authorization"]?.split(" ")[1];
-  if(!token) return res.status(401).json({ message: "Kein Token" });
-
+// Mitarbeiterakte abrufen
+router.get("/akte/:id", auth, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch(err) {
-    res.status(401).json({ message: "Token ungültig" });
-  }
-};
-
-// Alle Mitarbeiter abrufen
-router.get("/", auth, async (req,res) => {
-  try {
-    const employees = await User.find({}, "-password"); // Passwort nicht zurückgeben
-    res.json(employees);
-  } catch(err) {
+    const emp = await User.findById(req.params.id, "-password");
+    if (!emp) return res.status(404).json({ message: "Nicht gefunden" });
+    res.json(emp.akte || []);
+  } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Laden der Mitarbeiter" });
+    res.status(500).json({ message: "Fehler beim Laden der Akte" });
   }
 });
 
-// Mitarbeiter erstellen (nur Chief/Co-Chief)
-router.post("/", auth, async (req,res) => {
+// Eintrag zur Akte hinzufügen
+router.post("/akte/:id", auth, async (req, res) => {
   try {
-    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
-
-    const { vorname, nachname, username, password, rang } = req.body;
-    const newUser = new User({ vorname, nachname, username, password, rang });
-    await newUser.save();
-    res.json(newUser);
-  } catch(err) {
-    console.error(err);
-    res.status(500).json({ message: "Fehler beim Erstellen" });
-  }
-});
-
-// Bearbeiten
-router.put("/:id", auth, async (req,res) => {
-  try {
-    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
+    const { type, text } = req.body;
+    if (!type || !text) return res.status(400).json({ message: "Typ und Text benötigt" });
 
     const emp = await User.findById(req.params.id);
-    if(!emp) return res.status(404).json({ message: "Nicht gefunden" });
+    if (!emp) return res.status(404).json({ message: "Nicht gefunden" });
 
-    Object.assign(emp, req.body);
+    emp.akte.push({ type, text, createdBy: req.user.username });
     await emp.save();
-    res.json(emp);
-  } catch(err) {
+    res.json(emp.akte);
+  } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Bearbeiten" });
+    res.status(500).json({ message: "Fehler beim Hinzufügen des Eintrags" });
   }
 });
 
-// Löschen
-router.delete("/:id", auth, async (req,res) => {
+// Eigenes Passwort ändern
+router.put("/changepassword/:id", auth, async (req, res) => {
   try {
-    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ message: "Neues Passwort benötigt" });
 
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ message: "Gelöscht" });
-  } catch(err) {
+    const emp = await User.findById(req.params.id);
+    if (!emp) return res.status(404).json({ message: "Nicht gefunden" });
+
+    // Nur eigener User oder Chief/Co-Chief
+    if (req.user._id !== emp._id.toString() && req.user.rang !== "Chief" && req.user.rang !== "Co-Chief") {
+      return res.status(403).json({ message: "Keine Berechtigung" });
+    }
+
+    emp.password = password; // später bcrypt-Hashen beim Speichern
+    await emp.save();
+    res.json({ message: "Passwort geändert" });
+  } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Löschen" });
+    res.status(500).json({ message: "Fehler beim Ändern des Passworts" });
   }
 });
-
-export default router;
