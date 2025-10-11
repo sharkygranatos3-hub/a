@@ -13,4 +13,4 @@ const userSchema = new mongoose.Schema({
   active: { type: Boolean, default: true }
 }, { timestamps: true });
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model("User", userSchema, "users");
