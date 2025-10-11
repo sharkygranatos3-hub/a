@@ -1,20 +1,20 @@
 import express from "express";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-
-dotenv.config();
-
 const router = express.Router();
 
-// Dummy-Login
+// Beispiel-Login (später mit DB ersetzen)
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
+
+  // Test-Login
   if (username === "admin" && password === "12345") {
-    const token = jwt.sign({ username }, process.env.JWT_SECRET || "secret", { expiresIn: "1h" });
-    return res.json({ token });
+    return res.json({
+      token: "dummy-token-admin",
+      rank: "Chief",
+      username: "admin"
+    });
+  } else {
+    return res.status(401).json({ message: "Ungültige Anmeldedaten." });
   }
-  res.status(401).json({ error: "Ungültige Anmeldedaten" });
 });
 
 export default router;
