@@ -1,145 +1,161 @@
 import express from "express";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 
 const router = express.Router();
 
-// 🔒 Middleware Authentifizierung
+// Middleware Auth
 const auth = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Kein Token" });
+  if(!token) return res.status(401).json({ message: "Kein Token" });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch(err) {
     res.status(401).json({ message: "Token ungültig" });
   }
 };
 
-// 🧾 Alle Mitarbeiter abrufen
-router.get("/", auth, async (req, res) => {
+// Alle Mitarbeiter abrufen
+router.get("/", auth, async (req,res) => {
   try {
     const employees = await User.find({}, "-password");
     res.json(employees);
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     res.status(500).json({ message: "Fehler beim Laden der Mitarbeiter" });
   }
 });
 
-// 👤 Einzelnen Mitarbeiter abrufen
-router.get("/:id", auth, async (req, res) => {
+// Mitarbeiter erstellen (nur Chief/Co-Chief)
+router.post("/", auth, async (req,res) => {
   try {
-    const emp = await User.findById(req.params.id, "-password");
-    if (!emp) return res.status(404).json({ message: "Nicht gefunden" });
-    res.json(emp);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Fehler beim Abrufen" });
-  }
-});
-
-// ➕ Mitarbeiter erstellen (nur Chief / Co-Chief)
-router.post("/", auth, async (req, res) => {
-  try {
-    if (req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
+    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     const { vorname, nachname, username, password, rang, dienstnummer } = req.body;
-    const existing = await User.findOne({ username });
-    if (existing) return res.status(400).json({ message: "Benutzername existiert bereits" });
-
-    const newUser = new User({
-      vorname,
-      nachname,
-      username,
-      password,
-      rang,
-      dienstnummer,
-      entries: [],
-    });
-
+    const newUser = new User({ vorname, nachname, username, password, rang, dienstnummer, entries: [] });
     await newUser.save();
     res.json(newUser);
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     res.status(500).json({ message: "Fehler beim Erstellen" });
   }
 });
 
-// ✏️ Mitarbeiter bearbeiten (nur Chief / Co-Chief)
-router.put("/:id", auth, async (req, res) => {
+// Bearbeiten
+router.put("/:id", auth, async (req,res) => {
   try {
-    if (req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
+    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief" && req.user.id !== req.params.id)
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     const emp = await User.findById(req.params.id);
-    if (!emp) return res.status(404).json({ message: "Nicht gefunden" });
+    if(!emp) return res.status(404).json({ message: "Nicht gefunden" });
 
     Object.assign(emp, req.body);
     await emp.save();
     res.json(emp);
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     res.status(500).json({ message: "Fehler beim Bearbeiten" });
   }
 });
 
-// ❌ Mitarbeiter löschen (nur Chief / Co-Chief)
-router.delete("/:id", auth, async (req, res) => {
+// Löschen
+router.delete("/:id", auth, async (req,res) => {
   try {
-    if (req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
+    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     await User.findByIdAndDelete(req.params.id);
-    res.json({ message: "Mitarbeiter gelöscht" });
-  } catch (err) {
+    res.json({ message: "Gelöscht" });
+  } catch(err) {
     console.error(err);
     res.status(500).json({ message: "Fehler beim Löschen" });
   }
 });
 
-// 🟩 Eintrag hinzufügen
-router.post("/:id/entries", auth, async (req, res) => {
+////////////////////
+// Einträge API
+////////////////////
+
+// Einträge abrufen
+router.get("/:id/entries", auth, async (req,res) => {
   try {
-    const { type, text, date } = req.body;
-    const emp = await User.findById(req.params.id);
-    if (!emp) return res.status(404).json({ message: "Mitarbeiter nicht gefunden" });
-
-    if (!emp.entries) emp.entries = [];
-    emp.entries.push({ type, text, date: date || new Date() });
-
-    await emp.save();
+    const emp = await User.findById(req.params.id, "entries");
+    if(!emp) return res.status(404).json({ message: "Mitarbeiter nicht gefunden" });
     res.json(emp.entries);
-  } catch (err) {
+  } catch(err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Hinzufügen eines Eintrags" });
+    res.status(500).json({ message: "Fehler beim Laden der Einträge" });
   }
 });
 
-// 🔑 Passwort ändern oder neu generieren
-router.put("/:id/password", auth, async (req, res) => {
+// Eintrag erstellen
+router.post("/:id/entries", auth, async (req,res) => {
   try {
     const emp = await User.findById(req.params.id);
-    if (!emp) return res.status(404).json({ message: "Mitarbeiter nicht gefunden" });
+    if(!emp) return res.status(404).json({ message: "Mitarbeiter nicht gefunden" });
 
-    // Nur Chief/Co-Chief dürfen für andere neu setzen
-    // Normale Nutzer nur für sich selbst
-    if (req.user.id !== emp._id.toString() && req.user.rank !== "Chief" && req.user.rank !== "Co-Chief")
+    const newEntry = {
+      type: req.body.type,
+      description: req.body.description,
+      date: new Date(),
+      author: req.user.username,
+      authorId: req.user.id
+    };
+    emp.entries.push(newEntry);
+    await emp.save();
+    res.json(newEntry);
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Erstellen des Eintrags" });
+  }
+});
+
+// Eintrag bearbeiten
+router.put("/:id/entries/:entryId", auth, async (req,res) => {
+  try {
+    const emp = await User.findById(req.params.id);
+    if(!emp) return res.status(404).json({ message: "Mitarbeiter nicht gefunden" });
+
+    const entry = emp.entries.id(req.params.entryId);
+    if(!entry) return res.status(404).json({ message: "Eintrag nicht gefunden" });
+
+    // Rechte prüfen
+    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief" && entry.authorId !== req.user.id)
       return res.status(403).json({ message: "Keine Berechtigung" });
 
-    const { newPassword } = req.body;
-    if (!newPassword) return res.status(400).json({ message: "Neues Passwort erforderlich" });
-
-    emp.password = newPassword;
+    entry.description = req.body.description;
     await emp.save();
-    res.json({ message: "Passwort erfolgreich geändert" });
-  } catch (err) {
+    res.json(entry);
+  } catch(err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Ändern des Passworts" });
+    res.status(500).json({ message: "Fehler beim Bearbeiten des Eintrags" });
+  }
+});
+
+// Eintrag löschen
+router.delete("/:id/entries/:entryId", auth, async (req,res) => {
+  try {
+    const emp = await User.findById(req.params.id);
+    if(!emp) return res.status(404).json({ message: "Mitarbeiter nicht gefunden" });
+
+    const entry = emp.entries.id(req.params.entryId);
+    if(!entry) return res.status(404).json({ message: "Eintrag nicht gefunden" });
+
+    // Rechte prüfen
+    if(req.user.rank !== "Chief" && req.user.rank !== "Co-Chief" && entry.authorId !== req.user.id)
+      return res.status(403).json({ message: "Keine Berechtigung" });
+
+    entry.remove();
+    await emp.save();
+    res.json({ message: "Eintrag gelöscht" });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Löschen des Eintrags" });
   }
 });
 
