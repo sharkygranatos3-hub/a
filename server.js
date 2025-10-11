@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import authRoutes from "./routes/auth.js";
 
 dotenv.config();
 
@@ -45,6 +46,10 @@ app.get("/api/employees", (req, res) => {
   res.json([{ name: "Max Mustermann", rank: "Chief" }]);
 });
 
+// Auth-Routen
+app.use("/api/auth", authRoutes);
+
 // 🔹 Serverstart
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
