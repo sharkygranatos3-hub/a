@@ -5,7 +5,9 @@ import bcrypt from "bcryptjs";
 
 const router = express.Router();
 
-// Middleware Auth
+//////////////////////////
+// Auth Middleware
+//////////////////////////
 const auth = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Kein Token" });
@@ -15,6 +17,7 @@ const auth = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
+    console.error("Token Fehler:", err);
     res.status(401).json({ message: "Token ungültig" });
   }
 };
@@ -65,7 +68,8 @@ router.get("/:id", auth, async (req, res) => {
 //////////////////////////
 router.post("/", auth, async (req, res) => {
   try {
-    if (req.user.rang !== "Chief" && req.user.rang !== "Co-Chief")
+    const userRank = req.user.rank || req.user.rang;
+    if (userRank !== "Chief" && userRank !== "Co-Chief")
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     const { vorname, nachname, username, password, rang, dienstnummer } = req.body;
@@ -80,10 +84,11 @@ router.post("/", auth, async (req, res) => {
       dienstnummer,
       entries: [],
     });
+
     await newUser.save();
     res.json(newUser);
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Erstellen:", err);
     res.status(500).json({ message: "Fehler beim Erstellen" });
   }
 });
@@ -93,7 +98,9 @@ router.post("/", auth, async (req, res) => {
 //////////////////////////
 router.put("/:id", auth, async (req, res) => {
   try {
-    if (req.user.rang !== "Chief" && req.user.rang !== "Co-Chief" && req.user.id !== req.params.id)
+    const userRank = req.user.rank || req.user.rang;
+
+    if (userRank !== "Chief" && userRank !== "Co-Chief" && req.user.id !== req.params.id)
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     const emp = await User.findById(req.params.id);
@@ -103,13 +110,13 @@ router.put("/:id", auth, async (req, res) => {
 
     if (vorname) emp.vorname = vorname;
     if (nachname) emp.nachname = nachname;
-    if (rang && (req.user.rang === "Chief" || req.user.rang === "Co-Chief"))
+    if (rang && (userRank === "Chief" || userRank === "Co-Chief"))
       emp.rang = rang;
 
     await emp.save();
     res.json(emp);
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Bearbeiten:", err);
     res.status(500).json({ message: "Fehler beim Bearbeiten" });
   }
 });
@@ -119,13 +126,14 @@ router.put("/:id", auth, async (req, res) => {
 //////////////////////////
 router.delete("/:id", auth, async (req, res) => {
   try {
-    if (req.user.rang !== "Chief" && req.user.rang !== "Co-Chief")
+    const userRank = req.user.rank || req.user.rang;
+    if (userRank !== "Chief" && userRank !== "Co-Chief")
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     await User.findByIdAndDelete(req.params.id);
     res.json({ message: "Mitarbeiter gelöscht" });
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Löschen:", err);
     res.status(500).json({ message: "Fehler beim Löschen" });
   }
 });
@@ -147,7 +155,7 @@ router.put("/:id/password", auth, async (req, res) => {
 
     res.json({ message: "Passwort geändert" });
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Passwort ändern:", err);
     res.status(500).json({ message: "Fehler beim Passwort ändern" });
   }
 });
@@ -157,7 +165,8 @@ router.put("/:id/password", auth, async (req, res) => {
 //////////////////////////
 router.put("/:id/reset-password", auth, async (req, res) => {
   try {
-    if (req.user.rang !== "Chief" && req.user.rang !== "Co-Chief")
+    const userRank = req.user.rank || req.user.rang;
+    if (userRank !== "Chief" && userRank !== "Co-Chief")
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     const emp = await User.findById(req.params.id);
@@ -170,7 +179,7 @@ router.put("/:id/reset-password", auth, async (req, res) => {
 
     res.json({ message: "Passwort zurückgesetzt", newPassword });
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Zurücksetzen:", err);
     res.status(500).json({ message: "Fehler beim Zurücksetzen" });
   }
 });
@@ -206,7 +215,7 @@ router.post("/:id/entries", auth, async (req, res) => {
     await emp.save();
     res.json(newEntry);
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Erstellen des Eintrags:", err);
     res.status(500).json({ message: "Fehler beim Erstellen des Eintrags" });
   }
 });
@@ -219,14 +228,16 @@ router.delete("/:id/entries/:entryId", auth, async (req, res) => {
     const entry = emp.entries.id(req.params.entryId);
     if (!entry) return res.status(404).json({ message: "Eintrag nicht gefunden" });
 
-    if (req.user.rang !== "Chief" && req.user.rang !== "Co-Chief" && entry.authorId !== req.user.id)
+    const userRank = req.user.rank || req.user.rang;
+    if (userRank !== "Chief" && userRank !== "Co-Chief" && entry.authorId !== req.user.id)
       return res.status(403).json({ message: "Keine Berechtigung" });
 
-    entry.remove();
+    entry.deleteOne();
     await emp.save();
+
     res.json({ message: "Eintrag gelöscht" });
   } catch (err) {
-    console.error(err);
+    console.error("Fehler beim Löschen des Eintrags:", err);
     res.status(500).json({ message: "Fehler beim Löschen des Eintrags" });
   }
 });
