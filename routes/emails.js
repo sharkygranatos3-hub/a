@@ -1,28 +1,122 @@
 import express from "express";
-import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
-
-import { sendEmail, getInbox, getSent, getEmailById } from "../controllers/emailController.js";
+import Email from "../models/Email.js";
+import User from "../models/User.js";
 import verifyToken from "../middleware/auth.js";
 
 const router = express.Router();
 
-// 📂 Upload-Verzeichnis bestimmen
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// 📤 Multer-Konfiguration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, "../uploads")),
-  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
+// ----------------------------
+// Posteingang laden
+// ----------------------------
+router.get("/inbox", verifyToken, async (req, res) => {
+  try {
+    const emails = await Email.find({ to: req.user.id })
+      .populate("from", "vorname nachname username")
+      .sort({ createdAt: -1 });
+    const formatted = emails.map(e => ({
+      id: e._id,
+      subject: e.subject,
+      body: e.body,
+      from: e.from.username,
+      fromName: `${e.from.vorname} ${e.from.nachname}`,
+      images: e.images,
+      read: e.read,
+      createdAt: e.createdAt
+    }));
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Laden des Posteingangs" });
+  }
 });
-const upload = multer({ storage });
 
-// 📧 E-Mail-Routen
-router.post("/send", verifyToken, upload.single("attachment"), sendEmail);
-router.get("/inbox", verifyToken, getInbox);
-router.get("/sent", verifyToken, getSent);
-router.get("/:id", verifyToken, getEmailById);
+// ----------------------------
+// Gesendete Mails laden
+// ----------------------------
+router.get("/sent", verifyToken, async (req, res) => {
+  try {
+    const emails = await Email.find({ from: req.user.id })
+      .populate("to", "vorname nachname username")
+      .sort({ createdAt: -1 });
+    const formatted = emails.map(e => ({
+      id: e._id,
+      subject: e.subject,
+      body: e.body,
+      to: e.to.username,
+      toName: `${e.to.vorname} ${e.to.nachname}`,
+      images: e.images,
+      read: e.read,
+      createdAt: e.createdAt
+    }));
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Laden der gesendeten Mails" });
+  }
+});
+
+// ----------------------------
+// Mail senden
+// ----------------------------
+router.post("/send", verifyToken, async (req, res) => {
+  try {
+    const { toUsername, subject, body, images } = req.body;
+    if (!toUsername || !subject || !body)
+      return res.status(400).json({ message: "Empfänger, Betreff und Nachricht sind Pflicht" });
+
+    const recipient = await User.findOne({ username: toUsername });
+    if (!recipient) return res.status(400).json({ message: "Empfänger existiert nicht" });
+
+    const email = new Email({
+      from: req.user.id,
+      to: recipient._id,
+      subject,
+      body,
+      images: images || [],
+      read: false
+    });
+    await email.save();
+    res.json({ message: "E-Mail gesendet" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Senden der E-Mail" });
+  }
+});
+
+// ----------------------------
+// Mail löschen
+// ----------------------------
+router.delete("/:id", verifyToken, async (req, res) => {
+  try {
+    const email = await Email.findById(req.params.id);
+    if (!email) return res.status(404).json({ message: "E-Mail nicht gefunden" });
+    if (email.from.toString() !== req.user.id && email.to.toString() !== req.user.id)
+      return res.status(403).json({ message: "Keine Berechtigung" });
+
+    await Email.findByIdAndDelete(req.params.id);
+    res.json({ message: "E-Mail gelöscht" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Löschen der E-Mail" });
+  }
+});
+
+// ----------------------------
+// Mail als gelesen markieren
+// ----------------------------
+router.put("/:id/read", verifyToken, async (req, res) => {
+  try {
+    const email = await Email.findById(req.params.id);
+    if (!email) return res.status(404).json({ message: "E-Mail nicht gefunden" });
+    if (email.to.toString() !== req.user.id) return res.status(403).json({ message: "Keine Berechtigung" });
+
+    email.read = true;
+    await email.save();
+    res.json({ message: "E-Mail als gelesen markiert" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Aktualisieren der E-Mail" });
+  }
+});
 
 export default router;
