@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-// Middleware zur Authentifizierung
+// Auth-Middleware
 const auth = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Kein Token vorhanden" });
@@ -21,7 +21,7 @@ const auth = (req, res, next) => {
   }
 };
 
-// 🔧 Upload-Setup
+// Multer Upload Config
 const uploadDir = "./uploads";
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
@@ -38,19 +38,25 @@ const upload = multer({ storage });
 router.get("/inbox", auth, async (req, res) => {
   try {
     const mails = await Email.find({ to: req.user.username }).sort({ date: -1 });
-    res.json(mails);
+    const users = await User.find({}, "username vorname nachname");
+    const nameMap = Object.fromEntries(users.map(u => [u.username, `${u.vorname} ${u.nachname}`]));
+    const mailsWithNames = mails.map(m => ({
+      ...m.toObject(),
+      fromName: nameMap[m.from] || m.from,
+      toName: nameMap[m.to] || m.to
+    }));
+    res.json(mailsWithNames);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Fehler beim Laden des Posteingangs" });
   }
 });
 
-// 📤 E-Mail senden (mit Anhang optional)
+// 📤 E-Mail senden
 router.post("/send", auth, upload.single("attachment"), async (req, res) => {
   try {
     const { to, subject, body } = req.body;
 
-    // Prüfen, ob Empfänger existiert
     const recipient = await User.findOne({ username: to });
     if (!recipient) return res.status(404).json({ message: "Empfänger nicht gefunden" });
 
@@ -65,23 +71,22 @@ router.post("/send", auth, upload.single("attachment"), async (req, res) => {
     });
     await mail.save();
 
-    res.json({ message: "E-Mail gesendet", mail });
+    res.json({ success: true, mail });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Senden" });
+    res.status(500).json({ success: false, message: "Fehler beim Senden" });
   }
 });
 
-// 📂 Anhänge bereitstellen
+// 📂 Anhänge ausliefern
 router.use("/attachments", express.static("uploads"));
 
-// 📬 Einzelne E-Mail abrufen
+// 📬 Einzelne Mail abrufen
 router.get("/:id", auth, async (req, res) => {
   try {
     const mail = await Email.findById(req.params.id);
     if (!mail) return res.status(404).json({ message: "E-Mail nicht gefunden" });
 
-    // Nur Absender oder Empfänger darf lesen
     if (mail.to !== req.user.username && mail.from !== req.user.username)
       return res.status(403).json({ message: "Keine Berechtigung" });
 
@@ -91,7 +96,7 @@ router.get("/:id", auth, async (req, res) => {
     res.json(mail);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Abrufen der Mail" });
+    res.status(500).json({ message: "Fehler beim Abrufen der E-Mail" });
   }
 });
 
