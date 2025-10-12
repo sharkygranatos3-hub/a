@@ -1,94 +1,97 @@
 import express from "express";
-import jwt from "jsonwebtoken";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import Email from "../models/Email.js";
 import User from "../models/User.js";
-import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-//////////////////////////////////////////////
-// 🔐 Middleware zur Token-Prüfung
-//////////////////////////////////////////////
+// Middleware zur Authentifizierung
 const auth = (req, res, next) => {
   const token = req.headers["authorization"]?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Kein Token angegeben" });
-
+  if (!token) return res.status(401).json({ message: "Kein Token vorhanden" });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (err) {
-    console.error("Token ungültig:", err);
-    res.status(401).json({ message: "Token ungültig" });
+  } catch {
+    return res.status(401).json({ message: "Ungültiger Token" });
   }
 };
 
-//////////////////////////////////////////////
-// 📧 Schema für E-Mails
-//////////////////////////////////////////////
-const emailSchema = new mongoose.Schema({
-  from: { type: String, required: true },
-  to: { type: String, required: true },
-  subject: { type: String, required: true },
-  body: { type: String, required: true },
-  date: { type: Date, default: Date.now },
+// 🔧 Upload-Setup
+const uploadDir = "./uploads";
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueName + path.extname(file.originalname));
+  },
 });
+const upload = multer({ storage });
 
-const Email = mongoose.model("Email", emailSchema);
-
-//////////////////////////////////////////////
 // 📥 Posteingang abrufen
-//////////////////////////////////////////////
 router.get("/inbox", auth, async (req, res) => {
   try {
-    const username = req.user.username;
-    const inbox = await Email.find({ to: username }).sort({ date: -1 });
-    res.json(inbox);
+    const mails = await Email.find({ to: req.user.username }).sort({ date: -1 });
+    res.json(mails);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Laden der E-Mails" });
+    res.status(500).json({ message: "Fehler beim Laden des Posteingangs" });
   }
 });
 
-//////////////////////////////////////////////
-// 📤 E-Mail senden
-//////////////////////////////////////////////
-router.post("/send", auth, async (req, res) => {
+// 📤 E-Mail senden (mit Anhang optional)
+router.post("/send", auth, upload.single("attachment"), async (req, res) => {
   try {
     const { to, subject, body } = req.body;
-    if (!to || !subject || !body)
-      return res.status(400).json({ message: "Alle Felder sind erforderlich" });
 
-    // Empfänger überprüfen
+    // Prüfen, ob Empfänger existiert
     const recipient = await User.findOne({ username: to });
-    if (!recipient)
-      return res.status(404).json({ message: "Empfänger nicht gefunden" });
+    if (!recipient) return res.status(404).json({ message: "Empfänger nicht gefunden" });
 
-    const newMail = new Email({
+    const attachmentUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    const mail = new Email({
       from: req.user.username,
       to,
       subject,
       body,
-      date: new Date(),
+      attachment: attachmentUrl,
     });
+    await mail.save();
 
-    await newMail.save();
-    res.json({ message: "E-Mail erfolgreich gesendet", mail: newMail });
+    res.json({ message: "E-Mail gesendet", mail });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Senden der E-Mail" });
+    res.status(500).json({ message: "Fehler beim Senden" });
   }
 });
 
-//////////////////////////////////////////////
-// 📬 Gesendete E-Mails abrufen (optional)
-//////////////////////////////////////////////
-router.get("/sent", auth, async (req, res) => {
+// 📂 Anhänge bereitstellen
+router.use("/attachments", express.static("uploads"));
+
+// 📬 Einzelne E-Mail abrufen
+router.get("/:id", auth, async (req, res) => {
   try {
-    const sent = await Email.find({ from: req.user.username }).sort({ date: -1 });
-    res.json(sent);
+    const mail = await Email.findById(req.params.id);
+    if (!mail) return res.status(404).json({ message: "E-Mail nicht gefunden" });
+
+    // Nur Absender oder Empfänger darf lesen
+    if (mail.to !== req.user.username && mail.from !== req.user.username)
+      return res.status(403).json({ message: "Keine Berechtigung" });
+
+    mail.read = true;
+    await mail.save();
+
+    res.json(mail);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Laden der gesendeten E-Mails" });
+    res.status(500).json({ message: "Fehler beim Abrufen der Mail" });
   }
 });
 
