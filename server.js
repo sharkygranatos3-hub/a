@@ -2,9 +2,11 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 
 import authRoutes from "./routes/auth.js";
 import employeeRoutes from "./routes/employees.js";
+import emailRoutes from "./routes/emails.js"; // 🔹 neue Route
 
 dotenv.config();
 
@@ -12,7 +14,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MongoDB verbinden
+// 🧩 Uploads-Ordner bereitstellen (für Anhänge)
+const __dirname = path.resolve();
+const uploadsPath = path.join(__dirname, "uploads");
+app.use("/uploads", express.static(uploadsPath));
+
+// 🔹 MongoDB verbinden
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -20,12 +27,14 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(() => console.log("✅ Mit MongoDB verbunden"))
 .catch(err => console.error("❌ MongoDB Fehler:", err.message));
 
-// Routen
+// 🔹 API-Routen
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
+app.use("/api/emails", emailRoutes); // ← neue Mail-Route eingebunden
 
 // Test-Endpunkt
 app.get("/", (req, res) => res.send("Backend läuft!"));
 
+// Server starten
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
