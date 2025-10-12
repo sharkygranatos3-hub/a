@@ -30,13 +30,14 @@ mongoose.connect(process.env.MONGO_URI, {
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/emails", emailRoutes); // ← neue Mail-Route eingebunden
-app.use("/uploads", express.static("uploads")); // Anhänge öffentlich machen
+app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 // Test-Endpunkt
 app.get("/", (req, res) => res.send("Backend läuft!"));
 
 // Server starten
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
 
 
 
