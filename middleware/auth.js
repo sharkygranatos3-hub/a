@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export const verifyToken = (req, res, next) => {
+export default function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ msg: "Kein Token, Zugriff verweigert" });
@@ -19,4 +19,4 @@ export const verifyToken = (req, res, next) => {
     console.error("Token ungültig:", err);
     res.status(401).json({ msg: "Token ungültig" });
   }
-};
+}
