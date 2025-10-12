@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { sendEmail, getInbox, getSent, getEmailById } from "../controllers/emailController.js";
-import { verifyToken } from "../middleware/auth.js";
+import verifyToken from "../middleware/auth.js";
 
 const router = express.Router();
 
