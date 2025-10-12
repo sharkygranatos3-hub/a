@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import emailRoutes from "./routes/emails.js";
 
 import authRoutes from "./routes/auth.js";
 import employeeRoutes from "./routes/employees.js";
@@ -31,10 +32,12 @@ mongoose.connect(process.env.MONGO_URI, {
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/emails", emailRoutes); // ← neue Mail-Route eingebunden
-
+app.use("/api/emails", emailRoutes);
+app.use("/uploads", express.static("uploads")); // Anhänge öffentlich machen
 // Test-Endpunkt
 app.get("/", (req, res) => res.send("Backend läuft!"));
 
 // Server starten
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
