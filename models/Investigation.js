@@ -1,15 +1,22 @@
-// models/Investigation.js
 import mongoose from "mongoose";
+
+const entrySchema = new mongoose.Schema({
+  datum: { type: String, required: true },
+  inhalt: { type: String, required: true },
+  medien: [String]
+});
 
 const investigationSchema = new mongoose.Schema({
   beschuldigter: { type: String, required: true },
   tatvorwurf: { type: String, required: true },
-  tattag: { type: String },
-  tatzeit: { type: String },
-  tatort: { type: String },
-  zeugen: [{ type: String }],
-  beamte: [{ type: String }],
-  aktenzeichen: { type: String, unique: true },
+  tatzeit: String,
+  tattag: String,
+  tatort: String,
+  zeugen: String,
+  beamte: String,
+  aktenzeichen: String,
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  entries: [entrySchema],
   createdAt: { type: Date, default: Date.now }
 });
 
