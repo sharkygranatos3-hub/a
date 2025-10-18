@@ -12,19 +12,19 @@ const investigationSchema = new mongoose.Schema({
   tattag: String,
   tatzeit: String,
   tatort: String,
-  zeugen: String,
-  beamte: String,
+
+  // Arrays statt Strings
+  zeugen: [String],
+  beamte: [String],
+
   aktenzeichen: String,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-
-  // alle Einträge in der Akte (z. B. Berichte, Zeugenbefragungen etc.)
   eintraege: [entrySchema],
-
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Datum automatisch aktualisieren, wenn sich etwas ändert
+// Automatisches Updatedatum
 investigationSchema.pre("save", function (next) {
   this.updatedAt = new Date();
   next();
