@@ -19,10 +19,10 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, rank: user.rang },
-      process.env.JWT_SECRET,
-      { expiresIn: "8h" }
-    );
+  { _id: user._id, name: `${user.vorname} ${user.nachname}`, username: user.username, rank: user.rang },
+  process.env.JWT_SECRET,
+  { expiresIn: "8h" }
+);
 
     res.json({ token, rank: user.rang });
   } catch(err) {
