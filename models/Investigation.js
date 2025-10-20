@@ -23,7 +23,7 @@ const investigationSchema = new mongoose.Schema({
 
   aktenzeichen: String,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  entries: [entrySchema],
+  eintraege: [entrySchema],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -35,5 +35,6 @@ investigationSchema.pre("save", function (next) {
 });
 
 export default mongoose.model("Investigation", investigationSchema);
+
 
 
