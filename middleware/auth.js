@@ -1,22 +1,40 @@
+// routes/auth.js
+import express from "express";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-export default function verifyToken(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ msg: "Kein Token, Zugriff verweigert" });
-  }
+const router = express.Router();
 
-  const token = authHeader.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ msg: "Kein Token gefunden" });
-  }
+// Login
+router.post("/login", async (req, res) => {
+  const { username, password } = req.body;
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
+    // Benutzer finden
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ msg: "Benutzer nicht gefunden" });
+
+    // Passwort prüfen
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ msg: "Ungültiges Passwort" });
+
+    // Token erstellen – jetzt inkl. Name
+    const token = jwt.sign(
+      { 
+        _id: user._id,
+        name: `${user.vorname} ${user.nachname}`,
+        username: user.username
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" } // optional: 1 Tag gültig
+    );
+
+    res.json({ token });
   } catch (err) {
-    console.error("Token ungültig:", err);
-    res.status(401).json({ msg: "Token ungültig" });
+    console.error(err);
+    res.status(500).json({ msg: "Serverfehler" });
   }
-}
+});
+
+export default router;
