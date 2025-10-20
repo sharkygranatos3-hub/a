@@ -106,7 +106,11 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
     akte.entries.push({
       datum: datum || new Date().toLocaleDateString("de-DE"),
       inhalt,
-      medien: medien || []
+      medien: medien || [],
+      createdBy: {
+        id: req.user._id,
+        name: req.user.name
+      }
     });
 
     await akte.save();
@@ -116,6 +120,7 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
     res.status(500).json({ message: "Fehler beim Hinzufügen des Eintrags" });
   }
 });
+
 
 // ----------------------------
 // Ermittlungsakte löschen
@@ -132,5 +137,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 export default router;
+
 
 
