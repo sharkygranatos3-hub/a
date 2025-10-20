@@ -78,12 +78,16 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ----------------------------
 router.put("/:id", verifyToken, async (req, res) => {
   try {
-    const updated = await Investigation.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ message: "Ermittlung nicht gefunden" });
-    res.json({ message: "Ermittlung aktualisiert", updated });
+    const updated = await Investigation.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Akte nicht gefunden" });
+    res.json(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Fehler beim Aktualisieren der Ermittlung" });
+    res.status(500).json({ message: "Fehler beim Aktualisieren der Akte" });
   }
 });
 
@@ -128,3 +132,4 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 export default router;
+
