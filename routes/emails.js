@@ -18,12 +18,13 @@ router.get("/inbox", verifyToken, async (req, res) => {
       id: e._id,
       subject: e.subject,
       body: e.body,
-      from: e.from.username,
-      fromName: `${e.from.vorname} ${e.from.nachname}`,
-      images: e.images,
+      from: e.from?.username || "Unbekannt",
+      fromName: e.from ? `${e.from.vorname} ${e.from.nachname}` : "Unbekannt",
+      images: Array.isArray(e.images) ? e.images : [],
       read: e.read,
       createdAt: e.createdAt
     }));
+
     res.json(formatted);
   } catch (err) {
     console.error(err);
@@ -44,12 +45,13 @@ router.get("/sent", verifyToken, async (req, res) => {
       id: e._id,
       subject: e.subject,
       body: e.body,
-      to: e.to.username,
-      toName: `${e.to.vorname} ${e.to.nachname}`,
-      images: e.images,
+      to: e.to?.username || "Unbekannt",
+      toName: e.to ? `${e.to.vorname} ${e.to.nachname}` : "Unbekannt",
+      images: Array.isArray(e.images) ? e.images : [],
       read: e.read,
       createdAt: e.createdAt
     }));
+
     res.json(formatted);
   } catch (err) {
     console.error(err);
@@ -64,21 +66,19 @@ router.post("/send", verifyToken, async (req, res) => {
   try {
     const { toUsername, subject, body, images } = req.body;
 
-    if (!toUsername || !subject || !body)
+    if (!toUsername || !subject || !body) {
       return res.status(400).json({ message: "Empfänger, Betreff und Nachricht sind Pflicht" });
+    }
 
     const recipient = await User.findOne({ username: toUsername });
     if (!recipient) return res.status(400).json({ message: "Empfänger existiert nicht" });
-
-    // Sicherstellen, dass images ein Array ist
-    const imageArray = Array.isArray(images) ? images : [];
 
     const email = new Email({
       from: req.user._id,
       to: recipient._id,
       subject,
       body,
-      images: imageArray,
+      images: Array.isArray(images) ? images : [],
       read: false
     });
 
@@ -99,8 +99,9 @@ router.delete("/:id", verifyToken, async (req, res) => {
     const email = await Email.findById(req.params.id);
     if (!email) return res.status(404).json({ message: "E-Mail nicht gefunden" });
 
-    if (email.from.toString() !== req.user._id && email.to.toString() !== req.user._id)
+    if (email.from.toString() !== req.user._id && email.to.toString() !== req.user._id) {
       return res.status(403).json({ message: "Keine Berechtigung" });
+    }
 
     await Email.findByIdAndDelete(req.params.id);
     res.json({ message: "E-Mail gelöscht" });
@@ -119,7 +120,9 @@ router.put("/:id/read", verifyToken, async (req, res) => {
     const email = await Email.findById(req.params.id);
     if (!email) return res.status(404).json({ message: "E-Mail nicht gefunden" });
 
-    if (email.to.toString() !== req.user._id) return res.status(403).json({ message: "Keine Berechtigung" });
+    if (email.to.toString() !== req.user._id) {
+      return res.status(403).json({ message: "Keine Berechtigung" });
+    }
 
     email.read = true;
     await email.save();
