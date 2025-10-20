@@ -141,12 +141,12 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
     if (!akte.eintraege) akte.eintraege = [];
 
     akte.eintraege.push({
-      datum: datum || new Date().toLocaleString("de-DE"),
+      datum: datum || new Date().toLocaleDateString("de-DE"),
       inhalt,
       medien: medien || [],
       createdBy: {
         id: req.user._id,
-        name: req.user.name || "Unbekannt"
+        name: req.user.name
       }
     });
 
@@ -173,3 +173,4 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 export default router;
+
