@@ -5,15 +5,19 @@ import verifyToken from "../middleware/auth.js";
 
 const router = express.Router();
 
+// ----------------------------
 // Hilfsfunktion für Aktenzeichen
+// ----------------------------
 async function generateAktenzeichen() {
-  const year = new Date().getFullYear().toString().slice(-2);
+  const year = new Date().getFullYear().toString().slice(-2); // z. B. "25"
   const count = await Investigation.countDocuments({});
   const number = count + 1;
   return `LSPD ${number}/${year}`;
 }
 
+// ----------------------------
 // Alle Ermittlungen abrufen
+// ----------------------------
 router.get("/", verifyToken, async (req, res) => {
   try {
     const investigations = await Investigation.find().sort({ createdAt: -1 });
@@ -24,7 +28,9 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------------------
 // Neue Ermittlung anlegen
+// ----------------------------
 router.post("/", verifyToken, async (req, res) => {
   try {
     const { beschuldigter, tatvorwurf, tattag, tatzeit, tatort, zeugen, beamte } = req.body;
@@ -53,7 +59,9 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------------------
 // Einzelne Ermittlung abrufen
+// ----------------------------
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const inv = await Investigation.findById(req.params.id);
@@ -65,10 +73,16 @@ router.get("/:id", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------------------
 // Grunddaten bearbeiten
+// ----------------------------
 router.put("/:id", verifyToken, async (req, res) => {
   try {
-    const updated = await Investigation.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Investigation.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
     if (!updated) return res.status(404).json({ message: "Akte nicht gefunden" });
     res.json(updated);
   } catch (err) {
@@ -77,7 +91,9 @@ router.put("/:id", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------------------
 // Eintrag hinzufügen
+// ----------------------------
 router.post("/:id/entries", verifyToken, async (req, res) => {
   try {
     const { datum, inhalt, medien } = req.body;
@@ -88,7 +104,10 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
       datum: datum || new Date().toLocaleString(),
       inhalt,
       medien: medien || [],
-      createdBy: { id: req.user._id, name: req.user.name }
+      createdBy: {
+        id: req.user._id,
+        name: req.user.name || "Unbekannt"
+      }
     });
 
     await akte.save();
@@ -99,7 +118,9 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------------------
 // Eintrag bearbeiten
+// ----------------------------
 router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
   try {
     const { inhalt, medien } = req.body;
@@ -109,12 +130,13 @@ router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
     const entry = akte.eintraege.id(req.params.entryId);
     if (!entry) return res.status(404).json({ message: "Eintrag nicht gefunden" });
 
-    // Nur der Ersteller darf bearbeiten
-    if (entry.createdBy?.id.toString() !== req.user._id)
+    // Nur Ersteller darf bearbeiten
+    if (!entry.createdBy || entry.createdBy.id.toString() !== req.user._id)
       return res.status(403).json({ message: "Keine Berechtigung zum Bearbeiten" });
 
-    if (inhalt) entry.inhalt = inhalt;
-    if (medien) entry.medien = medien;
+    entry.inhalt = inhalt || entry.inhalt;
+    entry.medien = medien || entry.medien;
+    entry.datum = new Date().toLocaleString();
 
     await akte.save();
     res.json({ message: "Eintrag aktualisiert", entry });
@@ -124,7 +146,9 @@ router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
   }
 });
 
+// ----------------------------
 // Ermittlungsakte löschen
+// ----------------------------
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const deleted = await Investigation.findByIdAndDelete(req.params.id);
