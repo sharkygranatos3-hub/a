@@ -74,7 +74,7 @@ router.post("/send", verifyToken, async (req, res) => {
     const imageArray = Array.isArray(images) ? images : [];
 
     const email = new Email({
-      from: req.user.id,
+      from: req.user._id,
       to: recipient._id,
       subject,
       body,
@@ -99,7 +99,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
     const email = await Email.findById(req.params.id);
     if (!email) return res.status(404).json({ message: "E-Mail nicht gefunden" });
 
-    if (email.from.toString() !== req.user.id && email.to.toString() !== req.user.id)
+    if (email.from.toString() !== req.user._id && email.to.toString() !== req.user._id)
       return res.status(403).json({ message: "Keine Berechtigung" });
 
     await Email.findByIdAndDelete(req.params.id);
@@ -119,7 +119,7 @@ router.put("/:id/read", verifyToken, async (req, res) => {
     const email = await Email.findById(req.params.id);
     if (!email) return res.status(404).json({ message: "E-Mail nicht gefunden" });
 
-    if (email.to.toString() !== req.user.id) return res.status(403).json({ message: "Keine Berechtigung" });
+    if (email.to.toString() !== req.user._id) return res.status(403).json({ message: "Keine Berechtigung" });
 
     email.read = true;
     await email.save();
