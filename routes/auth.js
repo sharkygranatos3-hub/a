@@ -1,34 +1,30 @@
-import express from "express";
-import User from "../models/User.js";
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-const router = express.Router();
-
-// Login (vorerst Klartext-Passwort)
-router.post("/login", async (req, res) => {
+export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    if(!username || !password)
-      return res.status(400).json({ message: "Benutzername und Passwort erforderlich" });
-
     const user = await User.findOne({ username });
-    if(!user) return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
-    if(!user.active) return res.status(403).json({ message: "Benutzerkonto gesperrt" });
 
-    if(user.password !== password) // Klartext
-      return res.status(401).json({ message: "Ungültiger Benutzername oder Passwort" });
+    if (!user || !user.comparePassword(password)) {
+      return res.status(400).json({ message: "Ungültige Anmeldedaten." });
+    }
 
+    // Token erstellen – jetzt inkl. _id, Name, Username, Rank
     const token = jwt.sign(
-  { _id: user._id, name: `${user.vorname} ${user.nachname}`, username: user.username, rank: user.rang },
-  process.env.JWT_SECRET,
-  { expiresIn: "8h" }
-);
+      { 
+        _id: user._id,
+        name: `${user.vorname} ${user.nachname}`,
+        username: user.username,
+        rank: user.rang
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" } // 1 Tag gültig
+    );
 
     res.json({ token, rank: user.rang });
   } catch(err) {
     console.error(err);
     res.status(500).json({ message: "Serverfehler" });
   }
-});
-
-export default router;
+};
