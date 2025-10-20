@@ -3,7 +3,11 @@ import mongoose from "mongoose";
 const entrySchema = new mongoose.Schema({
   datum: { type: String, required: true },
   inhalt: { type: String, required: true },
-  medien: [String]
+  medien: [String],
+  createdBy: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    name: { type: String }
+  }
 });
 
 const investigationSchema = new mongoose.Schema({
@@ -31,4 +35,5 @@ investigationSchema.pre("save", function (next) {
 });
 
 export default mongoose.model("Investigation", investigationSchema);
+
 
