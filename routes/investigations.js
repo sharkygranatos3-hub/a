@@ -5,19 +5,15 @@ import verifyToken from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ----------------------------
 // Hilfsfunktion für Aktenzeichen
-// ----------------------------
 async function generateAktenzeichen() {
-  const year = new Date().getFullYear().toString().slice(-2); // z. B. "25"
+  const year = new Date().getFullYear().toString().slice(-2);
   const count = await Investigation.countDocuments({});
   const number = count + 1;
   return `LSPD ${number}/${year}`;
 }
 
-// ----------------------------
 // Alle Ermittlungen abrufen
-// ----------------------------
 router.get("/", verifyToken, async (req, res) => {
   try {
     const investigations = await Investigation.find().sort({ createdAt: -1 });
@@ -28,9 +24,7 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-// ----------------------------
 // Neue Ermittlung anlegen
-// ----------------------------
 router.post("/", verifyToken, async (req, res) => {
   try {
     const { beschuldigter, tatvorwurf, tattag, tatzeit, tatort, zeugen, beamte } = req.body;
@@ -45,18 +39,9 @@ router.post("/", verifyToken, async (req, res) => {
       tattag,
       tatzeit,
       tatort,
-      zeugen: Array.isArray(zeugen)
-        ? zeugen
-        : zeugen
-        ? zeugen.split(",").map(z => z.trim())
-        : [],
-      beamte: Array.isArray(beamte)
-        ? beamte
-        : beamte
-        ? beamte.split(",").map(b => b.trim())
-        : [],
+      zeugen,
+      beamte,
       aktenzeichen,
-      createdBy: req.user._id,
       eintraege: []
     });
 
@@ -68,9 +53,7 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-// ----------------------------
 // Einzelne Ermittlung abrufen
-// ----------------------------
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const inv = await Investigation.findById(req.params.id);
@@ -82,72 +65,30 @@ router.get("/:id", verifyToken, async (req, res) => {
   }
 });
 
-// ----------------------------
-// Grunddaten einer Ermittlung bearbeiten
-// ----------------------------
+// Grunddaten bearbeiten
 router.put("/:id", verifyToken, async (req, res) => {
   try {
-    const {
-      beschuldigter,
-      tatvorwurf,
-      tattag,
-      tatzeit,
-      tatort,
-      zeugen,
-      beamte
-    } = req.body;
-
-    const akte = await Investigation.findById(req.params.id);
-    if (!akte) return res.status(404).json({ message: "Akte nicht gefunden" });
-
-    if (beschuldigter !== undefined) akte.beschuldigter = beschuldigter;
-    if (tatvorwurf !== undefined) akte.tatvorwurf = tatvorwurf;
-    if (tattag !== undefined) akte.tattag = tattag;
-    if (tatzeit !== undefined) akte.tatzeit = tatzeit;
-    if (tatort !== undefined) akte.tatort = tatort;
-
-    if (Array.isArray(zeugen)) {
-      akte.zeugen = zeugen.filter(z => z && z.trim() !== "");
-    } else if (typeof zeugen === "string") {
-      akte.zeugen = zeugen.split(",").map(z => z.trim());
-    }
-
-    if (Array.isArray(beamte)) {
-      akte.beamte = beamte.filter(b => b && b.trim() !== "");
-    } else if (typeof beamte === "string") {
-      akte.beamte = beamte.split(",").map(b => b.trim());
-    }
-
-    akte.updatedAt = new Date();
-    await akte.save();
-
-    res.json({ message: "Ermittlungsakte aktualisiert", akte });
+    const updated = await Investigation.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: "Akte nicht gefunden" });
+    res.json(updated);
   } catch (err) {
-    console.error("Fehler beim Aktualisieren der Akte:", err);
-    res.status(500).json({ message: "Fehler beim Aktualisieren der Ermittlungsakte" });
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Aktualisieren der Akte" });
   }
 });
 
-// ----------------------------
-// Eintrag zu Ermittlungsakte hinzufügen
-// ----------------------------
+// Eintrag hinzufügen
 router.post("/:id/entries", verifyToken, async (req, res) => {
   try {
     const { datum, inhalt, medien } = req.body;
     const akte = await Investigation.findById(req.params.id);
-
     if (!akte) return res.status(404).json({ message: "Akte nicht gefunden" });
 
-    if (!akte.eintraege) akte.eintraege = [];
-
     akte.eintraege.push({
-      datum: datum || new Date().toLocaleDateString("de-DE"),
+      datum: datum || new Date().toLocaleString(),
       inhalt,
       medien: medien || [],
-      createdBy: {
-        id: req.user._id,
-        name: req.user.name
-      }
+      createdBy: { id: req.user._id, name: req.user.name }
     });
 
     await akte.save();
@@ -158,9 +99,32 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
   }
 });
 
-// ----------------------------
+// Eintrag bearbeiten
+router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
+  try {
+    const { inhalt, medien } = req.body;
+    const akte = await Investigation.findById(req.params.id);
+    if (!akte) return res.status(404).json({ message: "Akte nicht gefunden" });
+
+    const entry = akte.eintraege.id(req.params.entryId);
+    if (!entry) return res.status(404).json({ message: "Eintrag nicht gefunden" });
+
+    // Nur der Ersteller darf bearbeiten
+    if (entry.createdBy?.id.toString() !== req.user._id)
+      return res.status(403).json({ message: "Keine Berechtigung zum Bearbeiten" });
+
+    if (inhalt) entry.inhalt = inhalt;
+    if (medien) entry.medien = medien;
+
+    await akte.save();
+    res.json({ message: "Eintrag aktualisiert", entry });
+  } catch (err) {
+    console.error("Fehler beim Bearbeiten eines Eintrags:", err);
+    res.status(500).json({ message: "Fehler beim Bearbeiten des Eintrags" });
+  }
+});
+
 // Ermittlungsakte löschen
-// ----------------------------
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const deleted = await Investigation.findByIdAndDelete(req.params.id);
@@ -173,4 +137,3 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 export default router;
-
