@@ -10,7 +10,7 @@ const router = express.Router();
 // ----------------------------
 router.get("/inbox", verifyToken, async (req, res) => {
   try {
-    const emails = await Email.find({ to: req.user.id })
+    const emails = await Email.find({ to: req.user._id })
       .populate("from", "vorname nachname username")
       .sort({ createdAt: -1 });
 
@@ -36,7 +36,7 @@ router.get("/inbox", verifyToken, async (req, res) => {
 // ----------------------------
 router.get("/sent", verifyToken, async (req, res) => {
   try {
-    const emails = await Email.find({ from: req.user.id })
+    const emails = await Email.find({ from: req.user._id })
       .populate("to", "vorname nachname username")
       .sort({ createdAt: -1 });
 
