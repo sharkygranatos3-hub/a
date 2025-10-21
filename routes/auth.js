@@ -25,9 +25,9 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       {
         _id: user._id,
-        name: `${user.firstname} ${user.lastname}`,
+        name: `${user.vorname} ${user.nachname}`,
         username: user.username,
-        rank: user.rank,
+        rank: user.rang, // ⚠️ auch hier: in der DB heißt das Feld "rang", nicht "rank"
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
