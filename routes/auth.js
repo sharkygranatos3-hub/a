@@ -15,11 +15,11 @@ router.post("/login", async (req, res) => {
   try {
     // Benutzer finden
     const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ msg: "Benutzer nicht gefunden" });
+if (!user) return res.status(400).json({ message: "Benutzer nicht gefunden" });
 
     // Passwort prüfen
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: "Ungültiges Passwort" });
+    if (!isMatch) return res.status(400).json({ message: "Ungültiges Passwort" });
 
     // Token erstellen – jetzt inkl. _id, Name und Username
     const token = jwt.sign(
