@@ -147,7 +147,7 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
     if (!akte) return res.status(404).json({ message: "Akte nicht gefunden" });
 
     akte.eintraege.push({
-      datum: datum || new Date().toLocaleString(),
+      datum: datum || new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
       inhalt,
       medien: medien || [],
       createdBy: { id: req.user._id, name: req.user.name || "Unbekannt" }
@@ -178,7 +178,7 @@ router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
 
     entry.inhalt = inhalt || entry.inhalt;
     entry.medien = medien || entry.medien;
-    entry.datum = new Date().toLocaleString();
+    datum: datum || new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
 
     await akte.save();
     res.json({ message: "Eintrag aktualisiert", entry });
@@ -203,3 +203,4 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 export default router;
+
