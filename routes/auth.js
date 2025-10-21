@@ -1,29 +1,23 @@
-// routes/auth.js
-import express from "express";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import Employee from "../models/Employee.js"; // ✅ korrekt importieren
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const Employee = require("../models/Employee.js"); // ✅ CommonJS
 
 const router = express.Router();
 
-// Login
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password) {
+  if (!username || !password)
     return res.status(400).json({ msg: "Benutzername und Passwort erforderlich" });
-  }
 
   try {
-    // Benutzer suchen
     const user = await Employee.findOne({ username });
     if (!user) return res.status(400).json({ msg: "Benutzer nicht gefunden" });
 
-    // Passwort prüfen
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Ungültiges Passwort" });
 
-    // Token erstellen
     const token = jwt.sign(
       {
         _id: user._id,
@@ -32,7 +26,7 @@ router.post("/login", async (req, res) => {
         rank: user.rank
       },
       process.env.JWT_SECRET,
-      { expiresIn: "8h" } // optional: 8 Stunden
+      { expiresIn: "8h" }
     );
 
     res.json({ token, rank: user.rank });
@@ -42,4 +36,4 @@ router.post("/login", async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
