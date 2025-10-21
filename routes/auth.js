@@ -22,16 +22,18 @@ router.post("/login", async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Ungültige Anmeldedaten" });
     
     // JWT Token erstellen
-    const token = jwt.sign(
-      {
-        _id: user._id,
-        name: `${user.vorname} ${user.nachname}`,
-        username: user.username,
-        rank: user.rang, // ⚠️ auch hier: in der DB heißt das Feld "rang", nicht "rank"
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+console.log("User beim Login:", user); // schon gemacht
+const { vorname, nachname, username, rang, _id } = user._doc || user; // falls Mongoose-Dokument
+const token = jwt.sign(
+  {
+    _id,
+    name: `${vorname} ${nachname}`,
+    username,
+    rank: rang,
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "1d" }
+);
 
     res.json({ token, rank: user.rank });
   } catch (err) {
