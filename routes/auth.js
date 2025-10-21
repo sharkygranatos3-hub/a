@@ -6,37 +6,45 @@ import User from "../models/User.js";
 
 const router = express.Router();
 
-// ----------------------------
 // Login
-// ----------------------------
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Benutzer finden
+    if (!username || !password) {
+      return res.status(400).json({ message: "Benutzername und Passwort erforderlich." });
+    }
+
+    // Benutzer suchen
     const user = await User.findOne({ username });
-if (!user) return res.status(400).json({ message: "Benutzer nicht gefunden" });
+    if (!user) {
+      return res.status(400).json({ message: "Benutzer nicht gefunden." });
+    }
 
     // Passwort prüfen
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Ungültiges Passwort" });
+    if (!isMatch) {
+      return res.status(400).json({ message: "Ungültiges Passwort." });
+    }
 
-    // Token erstellen – jetzt inkl. _id, Name und Username
+    // Token erstellen
     const token = jwt.sign(
-      { 
+      {
         _id: user._id,
         name: `${user.vorname} ${user.nachname}`,
         username: user.username,
-        rank: user.rang // optional, falls du Rank speichern willst
+        rank: user.rang
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" } // Token 1 Tag gültig
+      { expiresIn: "1d" }
     );
 
-    res.json({ token, rank: user.rang });
+    // Erfolg
+    res.json({ token, rank: user.rang, message: "Login erfolgreich." });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: "Serverfehler" });
+    console.error("Fehler im Login:", err);
+    res.status(500).json({ message: "Serverfehler beim Login." });
   }
 });
 
