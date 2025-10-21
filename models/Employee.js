@@ -12,4 +12,5 @@ const EmployeeSchema = new mongoose.Schema({
   active: { type: Boolean, default: true }
 });
 
-export default mongoose.model("Employee", EmployeeSchema);
+export default mongoose.model("users", EmployeeSchema);
+
