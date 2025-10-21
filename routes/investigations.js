@@ -178,7 +178,7 @@ router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
 
     entry.inhalt = inhalt || entry.inhalt;
     entry.medien = medien || entry.medien;
-    datum: datum || new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
+    entry.datum = new Date().toLocaleString("de-DE", { timeZone: "Europe/Berlin" });
 
     await akte.save();
     res.json({ message: "Eintrag aktualisiert", entry });
@@ -203,4 +203,5 @@ router.delete("/:id", verifyToken, async (req, res) => {
 });
 
 export default router;
+
 
