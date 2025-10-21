@@ -17,24 +17,25 @@ const investigationSchema = new mongoose.Schema({
   tatzeit: String,
   tatort: String,
 
-  // Arrays statt Strings
   zeugen: [String],
   beamte: [String],
 
   aktenzeichen: String,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   eintraege: [entrySchema],
+
+  // Neue Felder
+  status: { type: String, default: "Offen" }, // "Offen", "PD Prüfen", "DoJ Prüfen"
+  urgent: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Automatisches Updatedatum
 investigationSchema.pre("save", function (next) {
   this.updatedAt = new Date();
   next();
 });
 
 export default mongoose.model("Investigation", investigationSchema);
-
-
-
