@@ -1,4 +1,3 @@
-// routes/investigations.js
 import express from "express";
 import Investigation from "../models/Investigation.js";
 import verifyToken from "../middleware/auth.js";
@@ -6,10 +5,10 @@ import verifyToken from "../middleware/auth.js";
 const router = express.Router();
 
 // ----------------------------
-// Hilfsfunktion für Aktenzeichen
+// Hilfsfunktion Aktenzeichen
 // ----------------------------
 async function generateAktenzeichen() {
-  const year = new Date().getFullYear().toString().slice(-2); // z. B. "25"
+  const year = new Date().getFullYear().toString().slice(-2);
   const count = await Investigation.countDocuments({});
   const number = count + 1;
   return `LSPD ${number}/${year}`;
@@ -48,7 +47,11 @@ router.post("/", verifyToken, async (req, res) => {
       zeugen,
       beamte,
       aktenzeichen,
-      eintraege: []
+      eintraege: [],
+      status: "Offen",
+      urgent: false,
+      archived: false,
+      createdBy: req.user._id
     });
 
     await newInvestigation.save();
@@ -78,16 +81,59 @@ router.get("/:id", verifyToken, async (req, res) => {
 // ----------------------------
 router.put("/:id", verifyToken, async (req, res) => {
   try {
-    const updated = await Investigation.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    const updated = await Investigation.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updated) return res.status(404).json({ message: "Akte nicht gefunden" });
     res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Fehler beim Aktualisieren der Akte" });
+  }
+});
+
+// ----------------------------
+// Archivieren
+// ----------------------------
+router.put("/:id/archive", verifyToken, async (req, res) => {
+  try {
+    const archived = await Investigation.findByIdAndUpdate(req.params.id, { archived: true }, { new: true });
+    if (!archived) return res.status(404).json({ message: "Ermittlung nicht gefunden" });
+    res.json({ message: "Ermittlung archiviert", archived });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Archivieren" });
+  }
+});
+
+// ----------------------------
+// Wiederherstellen
+// ----------------------------
+router.put("/:id/restore", verifyToken, async (req, res) => {
+  try {
+    const restored = await Investigation.findByIdAndUpdate(req.params.id, { archived: false }, { new: true });
+    if (!restored) return res.status(404).json({ message: "Ermittlung nicht gefunden" });
+    res.json({ message: "Ermittlung wiederhergestellt", restored });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Wiederherstellen" });
+  }
+});
+
+// ----------------------------
+// Status & Eilt ändern
+// ----------------------------
+router.put("/:id/status", verifyToken, async (req, res) => {
+  try {
+    const { status, urgent } = req.body;
+    const updated = await Investigation.findByIdAndUpdate(
+      req.params.id,
+      { status, urgent },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Ermittlung nicht gefunden" });
+    res.json({ message: "Status aktualisiert", updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Aktualisieren des Status" });
   }
 });
 
@@ -104,10 +150,7 @@ router.post("/:id/entries", verifyToken, async (req, res) => {
       datum: datum || new Date().toLocaleString(),
       inhalt,
       medien: medien || [],
-      createdBy: {
-        id: req.user._id,
-        name: req.user.name || "Unbekannt"
-      }
+      createdBy: { id: req.user._id, name: req.user.name || "Unbekannt" }
     });
 
     await akte.save();
@@ -130,7 +173,6 @@ router.put("/:id/entries/:entryId", verifyToken, async (req, res) => {
     const entry = akte.eintraege.id(req.params.entryId);
     if (!entry) return res.status(404).json({ message: "Eintrag nicht gefunden" });
 
-    // Nur Ersteller darf bearbeiten
     if (!entry.createdBy || entry.createdBy.id.toString() !== req.user._id)
       return res.status(403).json({ message: "Keine Berechtigung zum Bearbeiten" });
 
