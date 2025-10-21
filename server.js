@@ -3,9 +3,6 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import bcrypt from "bcryptjs";
-import Employee from "./models/Employee.js";
-
 import emailRoutes from "./routes/emails.js";
 import authRoutes from "./routes/auth.js";
 import employeeRoutes from "./routes/employees.js";
@@ -27,35 +24,15 @@ mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-.then(async () => {
-  console.log("✅ Mit MongoDB verbunden");
-
-  // 🔹 Klartext-Passwörter hashen
-  try {
-    const users = await Employee.find({});
-    for (const user of users) {
-      if (!user.password.startsWith("$2")) { // bcrypt-Hashes beginnen mit $2
-        const hashed = await bcrypt.hash(user.password, 10);
-        user.password = hashed;
-        await user.save();
-        console.log(`✅ Passwort gehasht für ${user.username}`);
-      }
-    }
-    console.log("🎉 Alle Klartext-Passwörter wurden gehasht!");
-  } catch (err) {
-    console.error("❌ Fehler beim Hashen der Passwörter:", err);
-  }
-
-})
+.then(() => console.log("✅ Mit MongoDB verbunden"))
 .catch(err => console.error("❌ MongoDB Fehler:", err.message));
 
 // 🔹 API-Routen
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
-app.use("/api/emails", emailRoutes);
+app.use("/api/emails", emailRoutes); // ← neue Mail-Route eingebunden
 app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 app.use("/api/investigations", investigationRoutes);
-
 // Test-Endpunkt
 app.get("/", (req, res) => res.send("Backend läuft!"));
 
