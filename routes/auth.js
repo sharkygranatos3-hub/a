@@ -20,7 +20,8 @@ router.post("/login", async (req, res) => {
     // Passwort prüfen
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Ungültige Anmeldedaten" });
-
+    
+console.log("User beim Login:", user);
     // JWT Token erstellen
     const token = jwt.sign(
       {
