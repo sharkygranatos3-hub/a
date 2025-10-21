@@ -1,12 +1,11 @@
-// routes/auth.js
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import Employee from "../models/Employee.js"; // 🟢 dein existierendes Model
+import Employee from "../models/Employee.js";
 
 const router = express.Router();
 
-// Login
+// 🔹 Login
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -14,14 +13,15 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ message: "Benutzername und Passwort erforderlich" });
 
   try {
-    // Employee-Model auf die Collection "users" zwingen
+    // Benutzer in der "users"-Collection finden
     const user = await Employee.findOne({ username }).exec();
     if (!user) return res.status(400).json({ message: "Benutzer nicht gefunden" });
 
+    // Passwort prüfen
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Ungültige Anmeldedaten" });
 
-    // Token erstellen
+    // JWT Token erstellen
     const token = jwt.sign(
       {
         _id: user._id,
