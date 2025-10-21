@@ -2,7 +2,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import Employee from "../models/Employee.js"; // ✅ korrekt importieren
 
 const router = express.Router();
 
@@ -10,41 +10,35 @@ const router = express.Router();
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  try {
-    if (!username || !password) {
-      return res.status(400).json({ message: "Benutzername und Passwort erforderlich." });
-    }
+  if (!username || !password) {
+    return res.status(400).json({ msg: "Benutzername und Passwort erforderlich" });
+  }
 
+  try {
     // Benutzer suchen
-    const user = await User.findOne({ username });
-    if (!user) {
-      return res.status(400).json({ message: "Benutzer nicht gefunden." });
-    }
+    const user = await Employee.findOne({ username });
+    if (!user) return res.status(400).json({ msg: "Benutzer nicht gefunden" });
 
     // Passwort prüfen
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Ungültiges Passwort." });
-    }
+    if (!isMatch) return res.status(400).json({ msg: "Ungültiges Passwort" });
 
     // Token erstellen
     const token = jwt.sign(
       {
         _id: user._id,
-        name: `${user.vorname} ${user.nachname}`,
+        name: `${user.firstname} ${user.lastname}`,
         username: user.username,
-        rank: user.rang
+        rank: user.rank
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "8h" } // optional: 8 Stunden
     );
 
-    // Erfolg
-    res.json({ token, rank: user.rang, message: "Login erfolgreich." });
-
+    res.json({ token, rank: user.rank });
   } catch (err) {
-    console.error("Fehler im Login:", err);
-    res.status(500).json({ message: "Serverfehler beim Login." });
+    console.error("Login-Fehler:", err);
+    res.status(500).json({ msg: "Serverfehler" });
   }
 });
 
