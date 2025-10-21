@@ -23,7 +23,13 @@ router.post("/login", async (req, res) => {
     
     // JWT Token erstellen
 console.log("User beim Login:", user); // schon gemacht
-const { vorname, nachname, username, rang, _id } = user._doc || user; // falls Mongoose-Dokument
+let vorname, nachname, username, rang, _id;
+if (user._doc) {
+  ({ vorname, nachname, username, rang, _id } = user._doc);
+} else {
+  ({ vorname, nachname, username, rang, _id } = user);
+}
+
 const token = jwt.sign(
   {
     _id,
