@@ -1,7 +1,7 @@
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const Employee = require("../models/Employee.js"); // ✅ CommonJS
+import express from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import Employee from "../models/Employee.js"; // ✅ ESM-Import
 
 const router = express.Router();
 
@@ -36,4 +36,4 @@ router.post("/login", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router; // ✅ ESM-Export
