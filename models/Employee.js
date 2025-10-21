@@ -1,4 +1,5 @@
-const mongoose = require('mongoose');
+// models/Employee.js
+import mongoose from "mongoose";
 
 const EmployeeSchema = new mongoose.Schema({
   firstname: String,
@@ -11,4 +12,4 @@ const EmployeeSchema = new mongoose.Schema({
   active: { type: Boolean, default: true }
 });
 
-module.exports = mongoose.model('Employee', EmployeeSchema);
+export default mongoose.model("Employee", EmployeeSchema);
