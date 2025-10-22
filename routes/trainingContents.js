@@ -1,106 +1,101 @@
 import express from "express";
-import jwt from "jsonwebtoken";
-import TrainingContent from "../models/TrainingContent.js";
+import Content from "../models/Content.js";
+import verifyToken from "../middleware/auth.js";
 
 const router = express.Router();
 
-// Auth Middleware
-function auth(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "Kein Token" });
+// ----------------------------
+// Alle Inhalte abrufen
+// ----------------------------
+router.get("/", verifyToken, async (req, res) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch {
-    res.status(401).json({ message: "Ungültiger Token" });
-  }
-}
-
-// 🔹 Alle Inhalte abrufen (Chief & Ausbilder)
-router.get("/", auth, async (req, res) => {
-  try {
-    if (req.user.rank !== "Ausbilder" && req.user.rank !== "Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
-
-    const contents = await TrainingContent.find().lean();
+    const contents = await Content.find().sort({ createdAt: -1 });
     res.json(contents);
   } catch (err) {
-    console.error("Fehler beim Laden:", err);
-    res.status(500).json({ message: "Serverfehler" });
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Laden der Inhalte" });
   }
 });
 
-// 🔹 Neuen Ausbildungsinhalt erstellen
-router.post("/", auth, async (req, res) => {
+// ----------------------------
+// Inhalt erstellen (nur Admin / Ausbilder / Chief)
+// ----------------------------
+router.post("/", verifyToken, async (req, res) => {
   try {
-    if (req.user.rank !== "Ausbilder" && req.user.rank !== "Chief")
+    const { titel, beschreibung, modules } = req.body;
+    if (!titel) return res.status(400).json({ message: "Titel ist erforderlich" });
+
+    if (!["Chief", "Instructor", "Co-Chief", "Ausbilder"].includes(req.user.rank))
       return res.status(403).json({ message: "Keine Berechtigung" });
 
-    const { titel, beschreibung } = req.body;
-
-    const newContent = new TrainingContent({
+    const newContent = new Content({
       titel,
       beschreibung,
-      erstelltVon: req.user.username,
+      modules: modules || [],
+      createdBy: req.user._id
     });
 
     await newContent.save();
-    res.status(201).json(newContent);
+    res.json({ message: "Inhalt erstellt", content: newContent });
   } catch (err) {
-    console.error("Fehler beim Erstellen:", err);
-    res.status(500).json({ message: "Serverfehler" });
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Erstellen des Inhalts" });
   }
 });
 
-// 🔹 Ausbildungsinhalt bearbeiten
-router.put("/:id", auth, async (req, res) => {
+// ----------------------------
+// Einzelnen Inhalt abrufen
+// ----------------------------
+router.get("/:id", verifyToken, async (req, res) => {
   try {
-    if (req.user.rank !== "Ausbilder" && req.user.rank !== "Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
-
-    const updated = await TrainingContent.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    res.json(updated);
-  } catch (err) {
-    console.error("Fehler beim Bearbeiten:", err);
-    res.status(500).json({ message: "Serverfehler" });
-  }
-});
-
-// 🔹 Ausbildungsinhalt löschen
-router.delete("/:id", auth, async (req, res) => {
-  try {
-    if (req.user.rank !== "Ausbilder" && req.user.rank !== "Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
-
-    await TrainingContent.findByIdAndDelete(req.params.id);
-    res.json({ message: "Inhalt gelöscht" });
-  } catch (err) {
-    console.error("Fehler beim Löschen:", err);
-    res.status(500).json({ message: "Serverfehler" });
-  }
-});
-
-// 🔹 Modul zu Inhalt hinzufügen
-router.post("/:id/module", auth, async (req, res) => {
-  try {
-    if (req.user.rank !== "Ausbilder" && req.user.rank !== "Chief")
-      return res.status(403).json({ message: "Keine Berechtigung" });
-
-    const { titel, inhalt } = req.body;
-    const content = await TrainingContent.findById(req.params.id);
-    if (!content) return res.status(404).json({ message: "Nicht gefunden" });
-
-    content.module.push({ titel, inhalt });
-    await content.save();
+    const content = await Content.findById(req.params.id);
+    if (!content) return res.status(404).json({ message: "Inhalt nicht gefunden" });
     res.json(content);
   } catch (err) {
-    console.error("Fehler beim Hinzufügen:", err);
-    res.status(500).json({ message: "Serverfehler" });
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Laden des Inhalts" });
+  }
+});
+
+// ----------------------------
+// Inhalt bearbeiten
+// ----------------------------
+router.put("/:id", verifyToken, async (req, res) => {
+  try {
+    const { titel, beschreibung, modules } = req.body;
+    const content = await Content.findById(req.params.id);
+    if (!content) return res.status(404).json({ message: "Inhalt nicht gefunden" });
+
+    if (!["Chief", "Instructor", "Co-Chief", "Ausbilder"].includes(req.user.rank))
+      return res.status(403).json({ message: "Keine Berechtigung" });
+
+    if (titel) content.titel = titel;
+    if (beschreibung) content.beschreibung = beschreibung;
+    if (modules) content.modules = modules;
+    content.updatedAt = new Date();
+
+    await content.save();
+    res.json({ message: "Inhalt aktualisiert", content });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Bearbeiten des Inhalts" });
+  }
+});
+
+// ----------------------------
+// Inhalt löschen
+// ----------------------------
+router.delete("/:id", verifyToken, async (req, res) => {
+  try {
+    if (!["Chief", "Instructor", "Co-Chief", "Ausbilder"].includes(req.user.rank))
+      return res.status(403).json({ message: "Keine Berechtigung" });
+
+    const deleted = await Content.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Inhalt nicht gefunden" });
+    res.json({ message: "Inhalt gelöscht" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Löschen des Inhalts" });
   }
 });
 
