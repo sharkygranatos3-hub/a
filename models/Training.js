@@ -1,33 +1,25 @@
 import mongoose from "mongoose";
 
 const moduleSchema = new mongoose.Schema({
-  titel: { type: String, required: true },
-  inhalt: { type: String },
-  createdAt: { type: Date, default: Date.now }
+  titel: String,
+  inhalt: String,
 });
 
-const trainingSchema = new mongoose.Schema(
-  {
-    titel: { type: String, required: true },
-    beschreibung: { type: String },
-    trainer: { type: String },
-    ort: { type: String },
-    zeitpunkt: { type: Date },
-    maxTeilnehmer: { type: Number },
-    zielgruppe: { type: String },
-    erforderlicherRang: { type: String },
-    teilnehmer: [
-      {
-        id: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
-        name: String,
-        bestanden: { type: Boolean, default: false }
-      }
-    ],
-    module: [moduleSchema],
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
-    createdAt: { type: Date, default: Date.now }
-  },
-  { timestamps: true }
-);
+const teilnehmerSchema = new mongoose.Schema({
+  username: String,
+  name: String,
+  bestanden: { type: Boolean, default: false },
+});
+
+const trainingSchema = new mongoose.Schema({
+  titel: String,
+  beschreibung: String,
+  trainer: String,
+  ort: String,
+  zeitpunkt: Date,
+  erstelltVon: String,
+  teilnehmer: [teilnehmerSchema],
+  module: [moduleSchema],
+});
 
 export default mongoose.model("Training", trainingSchema);
