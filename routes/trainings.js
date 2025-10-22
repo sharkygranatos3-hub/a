@@ -1,100 +1,129 @@
-// routes/trainings.js
-const trainings = await Training.find().select("title description trainer trainerName datetime target").sort({ datetime: 1 });
-res.json(trainings);
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler beim Laden der Inhalte" }); }
+import express from "express";
+import Training from "../models/Training.js";
+import verifyToken from "../middleware/auth.js";
+
+const router = express.Router();
+
+// 🟦 Alle Trainings laden
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    const trainings = await Training.find().sort({ datum: -1 });
+    res.json(trainings);
+  } catch (err) {
+    console.error("Fehler beim Laden der Trainings:", err);
+    res.status(500).json({ message: "Fehler beim Laden der Trainings" });
+  }
 });
 
-
-// GET /api/trainings/:id - einzelnes Training
-router.get("/:id", verifyToken, async (req,res)=>{
-try{
-const t = await Training.findById(req.params.id);
-if(!t) return res.status(404).json({ message: "Training nicht gefunden" });
-res.json(t);
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler" }); }
+// 🟩 Einzelnes Training abrufen
+router.get("/:id", verifyToken, async (req, res) => {
+  try {
+    const training = await Training.findById(req.params.id);
+    if (!training) return res.status(404).json({ message: "Training nicht gefunden" });
+    res.json(training);
+  } catch (err) {
+    console.error("Fehler beim Laden eines Trainings:", err);
+    res.status(500).json({ message: "Fehler beim Laden eines Trainings" });
+  }
 });
 
+// 🟨 Neues Training / Ausbildung erstellen
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const userRank = req.user.rank || req.user.role;
+    if (!["Chief", "Instructor", "Co-Chief"].includes(userRank)) {
+      return res.status(403).json({ message: "Keine Berechtigung" });
+    }
 
-// POST /api/trainings - erstellen (Admin/Instructor)
-router.post("/", verifyToken, async (req,res)=>{
-try{
-if(!isAdminOrInstructor(req.user)) return res.status(403).json({ message: "Keine Berechtigung" });
-const { title, description, trainer, trainerName, datetime, maxParticipants, target } = req.body;
-if(!title) return res.status(400).json({ message: "Titel erforderlich" });
+    const newTraining = new Training({
+      titel: req.body.titel,
+      beschreibung: req.body.beschreibung,
+      trainer: req.user.name,
+      ort: req.body.ort,
+      datum: req.body.datum,
+      maxTeilnehmer: req.body.maxTeilnehmer,
+      zielgruppe: req.body.zielgruppe,
+      erforderlichRang: req.body.erforderlichRang,
+      module: req.body.module || [],
+    });
 
-
-const t = new Training({
-title,
-description: description || "",
-trainer: trainer || req.user.username,
-trainerName: trainerName || req.user.name || "",
-datetime: datetime ? new Date(datetime) : null,
-maxParticipants: maxParticipants || 20,
-target: target || "All",
-createdBy: req.user._id
-});
-await t.save();
-res.json({ message: "Training erstellt", training: t });
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler beim Erstellen" }); }
-});
-
-
-// PUT /api/trainings/:id - bearbeiten (Admin/Instructor)
-router.put("/:id", verifyToken, async (req,res)=>{
-try{
-if(!isAdminOrInstructor(req.user)) return res.status(403).json({ message: "Keine Berechtigung" });
-const update = { ...req.body };
-if(update.datetime) update.datetime = new Date(update.datetime);
-const updated = await Training.findByIdAndUpdate(req.params.id, update, { new:true });
-if(!updated) return res.status(404).json({ message: "Training nicht gefunden" });
-res.json({ message: "Training aktualisiert", training: updated });
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler beim Aktualisieren" }); }
+    await newTraining.save();
+    res.json(newTraining);
+  } catch (err) {
+    console.error("Fehler beim Erstellen eines Trainings:", err);
+    res.status(500).json({ message: "Fehler beim Erstellen eines Trainings" });
+  }
 });
 
+// 🟧 Training bearbeiten
+router.put("/:id", verifyToken, async (req, res) => {
+  try {
+    const userRank = req.user.rank || req.user.role;
+    if (!["Chief", "Instructor", "Co-Chief"].includes(userRank)) {
+      return res.status(403).json({ message: "Keine Berechtigung" });
+    }
 
-// DELETE /api/trainings/:id - löschen (Admin/Instructor)
-router.delete("/:id", verifyToken, async (req,res)=>{
-try{
-if(!isAdminOrInstructor(req.user)) return res.status(403).json({ message: "Keine Berechtigung" });
-const deleted = await Training.findByIdAndDelete(req.params.id);
-if(!deleted) return res.status(404).json({ message: "Training nicht gefunden" });
-res.json({ message: "Training gelöscht" });
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler beim Löschen" }); }
+    const updated = await Training.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updated);
+  } catch (err) {
+    console.error("Fehler beim Bearbeiten eines Trainings:", err);
+    res.status(500).json({ message: "Fehler beim Bearbeiten eines Trainings" });
+  }
 });
 
+// 🟥 Training löschen
+router.delete("/:id", verifyToken, async (req, res) => {
+  try {
+    const userRank = req.user.rank || req.user.role;
+    if (!["Chief", "Instructor", "Co-Chief"].includes(userRank)) {
+      return res.status(403).json({ message: "Keine Berechtigung" });
+    }
 
-// POST /api/trainings/:id/signup - anmelden (jeder angemeldete User)
-router.post("/:id/signup", verifyToken, async (req,res)=>{
-try{
-const t = await Training.findById(req.params.id);
-if(!t) return res.status(404).json({ message: "Training nicht gefunden" });
-const username = req.body.username || req.user.username;
-const name = req.body.name || req.user.name || username;
-
-
-// check duplicate
-if((t.participants||[]).some(p => p.username === username)) return res.status(400).json({ message: "Schon angemeldet" });
-if(t.maxParticipants && (t.participants||[]).length >= t.maxParticipants) return res.status(400).json({ message: "Teilnehmerlimit erreicht" });
-
-
-t.participants.push({ username, name, status: 'registered' });
-await t.save();
-res.json({ message: "Angemeldet" });
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler bei der Anmeldung" }); }
+    await Training.findByIdAndDelete(req.params.id);
+    res.json({ message: "Training gelöscht" });
+  } catch (err) {
+    console.error("Fehler beim Löschen eines Trainings:", err);
+    res.status(500).json({ message: "Fehler beim Löschen eines Trainings" });
+  }
 });
 
+// 🧍 Teilnehmer anmelden
+router.post("/:id/join", verifyToken, async (req, res) => {
+  try {
+    const training = await Training.findById(req.params.id);
+    if (!training) return res.status(404).json({ message: "Training nicht gefunden" });
 
-// GET /api/trainings/:id/participants - Teilnehmerliste (Admin/Trainer)
-router.get("/:id/participants", verifyToken, async (req,res)=>{
-try{
-const t = await Training.findById(req.params.id);
-if(!t) return res.status(404).json({ message: "Training nicht gefunden" });
-// nur Admin oder der Trainer selbst darf komplette Liste sehen
-const isTrainer = (t.trainer === req.user.username) || isAdminOrInstructor(req.user);
-if(!isTrainer) return res.status(403).json({ message: "Keine Berechtigung" });
-res.json(t.participants || []);
-}catch(err){ console.error(err); res.status(500).json({ message: "Fehler" }); }
+    const alreadyJoined = training.teilnehmer.some(t => t.id === req.user._id);
+    if (alreadyJoined) return res.status(400).json({ message: "Bereits angemeldet" });
+
+    training.teilnehmer.push({
+      id: req.user._id,
+      name: req.user.name,
+      username: req.user.username,
+    });
+
+    await training.save();
+    res.json(training);
+  } catch (err) {
+    console.error("Fehler beim Anmelden:", err);
+    res.status(500).json({ message: "Fehler beim Anmelden" });
+  }
 });
 
+// 🧾 Teilnehmer austragen
+router.post("/:id/leave", verifyToken, async (req, res) => {
+  try {
+    const training = await Training.findById(req.params.id);
+    if (!training) return res.status(404).json({ message: "Training nicht gefunden" });
+
+    training.teilnehmer = training.teilnehmer.filter(t => t.id !== req.user._id);
+    await training.save();
+
+    res.json(training);
+  } catch (err) {
+    console.error("Fehler beim Abmelden:", err);
+    res.status(500).json({ message: "Fehler beim Abmelden" });
+  }
+});
 
 export default router;
