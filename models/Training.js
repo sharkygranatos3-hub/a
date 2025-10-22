@@ -1,25 +1,35 @@
+// models/Training.js
 import mongoose from "mongoose";
 
-const moduleSchema = new mongoose.Schema({
-  titel: String,
-  inhalt: String,
-});
 
-const teilnehmerSchema = new mongoose.Schema({
-  username: String,
-  name: String,
-  bestanden: { type: Boolean, default: false },
-});
+const participantSchema = new mongoose.Schema({
+username: { type: String, required: true },
+name: String,
+status: { type: String, enum: ["registered","completed","passed","failed"], default: "registered" },
+registeredAt: { type: Date, default: Date.now }
+}, { _id: false });
+
 
 const trainingSchema = new mongoose.Schema({
-  titel: String,
-  beschreibung: String,
-  trainer: String,
-  ort: String,
-  zeitpunkt: Date,
-  erstelltVon: String,
-  teilnehmer: [teilnehmerSchema],
-  module: [moduleSchema],
+title: { type: String, required: true },
+description: { type: String, default: "" }, // HTML (Quill)
+trainer: { type: String, default: "" }, // trainer username
+trainerName: { type: String, default: "" }, // optional display name
+datetime: { type: Date },
+maxParticipants: { type: Number, default: 20 },
+target: { type: String, default: "All" },
+participants: { type: [participantSchema], default: [] },
+createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+createdAt: { type: Date, default: Date.now },
+updatedAt: { type: Date, default: Date.now }
 });
 
-export default mongoose.model("Training", trainingSchema);
+
+trainingSchema.pre("save", function(next){
+this.updatedAt = new Date();
+next();
+});
+
+
+const Training = mongoose.models.Training || mongoose.model("Training", trainingSchema);
+export default Training;
