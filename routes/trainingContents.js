@@ -1,5 +1,5 @@
 import express from "express";
-import Content from "../models/Content.js";
+import TrainingContent from "../models/TrainingContent.js"; // ✅ richtiger Dateiname
 import verifyToken from "../middleware/auth.js";
 
 const router = express.Router();
@@ -9,7 +9,7 @@ const router = express.Router();
 // ----------------------------
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const contents = await Content.find().sort({ createdAt: -1 });
+    const contents = await TrainingContent.find().sort({ createdAt: -1 });
     res.json(contents);
   } catch (err) {
     console.error(err);
@@ -28,7 +28,7 @@ router.post("/", verifyToken, async (req, res) => {
     if (!["Chief", "Instructor", "Co-Chief", "Ausbilder"].includes(req.user.rank))
       return res.status(403).json({ message: "Keine Berechtigung" });
 
-    const newContent = new Content({
+    const newContent = new TrainingContent({
       titel,
       beschreibung,
       modules: modules || [],
@@ -48,7 +48,7 @@ router.post("/", verifyToken, async (req, res) => {
 // ----------------------------
 router.get("/:id", verifyToken, async (req, res) => {
   try {
-    const content = await Content.findById(req.params.id);
+    const content = await TrainingContent.findById(req.params.id);
     if (!content) return res.status(404).json({ message: "Inhalt nicht gefunden" });
     res.json(content);
   } catch (err) {
@@ -63,7 +63,7 @@ router.get("/:id", verifyToken, async (req, res) => {
 router.put("/:id", verifyToken, async (req, res) => {
   try {
     const { titel, beschreibung, modules } = req.body;
-    const content = await Content.findById(req.params.id);
+    const content = await TrainingContent.findById(req.params.id);
     if (!content) return res.status(404).json({ message: "Inhalt nicht gefunden" });
 
     if (!["Chief", "Instructor", "Co-Chief", "Ausbilder"].includes(req.user.rank))
@@ -90,7 +90,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
     if (!["Chief", "Instructor", "Co-Chief", "Ausbilder"].includes(req.user.rank))
       return res.status(403).json({ message: "Keine Berechtigung" });
 
-    const deleted = await Content.findByIdAndDelete(req.params.id);
+    const deleted = await TrainingContent.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Inhalt nicht gefunden" });
     res.json({ message: "Inhalt gelöscht" });
   } catch (err) {
