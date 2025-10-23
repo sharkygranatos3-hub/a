@@ -10,6 +10,7 @@ import investigationRoutes from "./routes/investigations.js";
 import trainingRoutes from "./routes/trainings.js";
 import newsRoutes from './routes/news.js';
 import eventRoutes from "./routes/events.js";
+import wikiRoutes from "./routes/wiki.js";
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use("/api/investigations", investigationRoutes);
 app.use("/api/trainings", trainingRoutes);
 app.use('/api/news', newsRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/wiki", wikiRoutes);
 
 // Test-Endpunkt
 app.get("/", (req, res) => res.send("Backend läuft!"));
@@ -46,6 +48,7 @@ app.get("/", (req, res) => res.send("Backend läuft!"));
 // Server starten
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
 
 
 
