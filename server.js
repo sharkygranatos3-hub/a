@@ -8,7 +8,7 @@ import authRoutes from "./routes/auth.js";
 import employeeRoutes from "./routes/employees.js";
 import investigationRoutes from "./routes/investigations.js";
 import trainingRoutes from "./routes/trainings.js";
-import trainingContentsRoutes from "./routes/trainingContents.js";
+import newsRoutes from './routes/news.js';
 
 dotenv.config();
 
@@ -36,13 +36,14 @@ app.use("/api/emails", emailRoutes); // ← neue Mail-Route eingebunden
 app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 app.use("/api/investigations", investigationRoutes);
 app.use("/api/trainings", trainingRoutes);
-app.use("/api/training-contents", trainingContentsRoutes);
+app.use('/api/news', newsRoutes);
 // Test-Endpunkt
 app.get("/", (req, res) => res.send("Backend läuft!"));
 
 // Server starten
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
+
 
 
 
