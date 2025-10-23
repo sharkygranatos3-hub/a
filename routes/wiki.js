@@ -1,6 +1,6 @@
 import express from "express";
 import WikiEntry from "../models/wikiEntry.js";
-import authMiddleware from "../middleware/auth.js"; // ✅ kein { } mehr
+import { verifyToken, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
