@@ -1,6 +1,6 @@
 import express from "express";
 import Event from "../models/Event.js";
-import authMiddleware from "../middleware/auth.js"; // ✅ kein { } mehr
+import { authMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ router.get("/", authMiddleware, async (req, res) => {
     const events = await Event.find().sort({ start: 1 });
     res.json(events);
   } catch (err) {
-    res.status(500).json({ message: "Fehler beim Laden der Events" });
+    res.status(500).json({ message: "Fehler beim Laden der Termine" });
   }
 });
 
@@ -27,31 +27,32 @@ router.post("/", authMiddleware, async (req, res) => {
       desc,
       owner: req.user.id,
       ownerName: req.user.name,
-      ownerRank: req.user.rank,
+      ownerRank: req.user.rank
     });
     await newEvent.save();
-    res.status(201).json(newEvent);
+    res.json(newEvent);
   } catch (err) {
-    res.status(500).json({ message: "Fehler beim Erstellen des Events" });
+    console.error(err);
+    res.status(500).json({ message: "Fehler beim Erstellen" });
   }
 });
 
-// Event aktualisieren
+// Event bearbeiten
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: "Event nicht gefunden" });
+    if (!event) return res.status(404).json({ message: "Nicht gefunden" });
 
-    // Nur Owner oder Chief/Ausbilder dürfen bearbeiten
+    // Berechtigung prüfen
     if (event.owner.toString() !== req.user.id && !["Chief", "Ausbilder"].includes(req.user.rank)) {
-      return res.status(403).json({ message: "Keine Berechtigung" });
+      return res.status(403).json({ message: "Keine Berechtigung zum Bearbeiten" });
     }
 
     Object.assign(event, req.body);
     await event.save();
     res.json(event);
   } catch (err) {
-    res.status(500).json({ message: "Fehler beim Aktualisieren des Events" });
+    res.status(500).json({ message: "Fehler beim Bearbeiten" });
   }
 });
 
@@ -59,17 +60,17 @@ router.put("/:id", authMiddleware, async (req, res) => {
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: "Event nicht gefunden" });
+    if (!event) return res.status(404).json({ message: "Nicht gefunden" });
 
-    // Nur Owner oder Chief/Ausbilder dürfen löschen
+    // Berechtigung prüfen
     if (event.owner.toString() !== req.user.id && !["Chief", "Ausbilder"].includes(req.user.rank)) {
-      return res.status(403).json({ message: "Keine Berechtigung" });
+      return res.status(403).json({ message: "Keine Berechtigung zum Löschen" });
     }
 
     await event.deleteOne();
     res.json({ message: "Event gelöscht" });
   } catch (err) {
-    res.status(500).json({ message: "Fehler beim Löschen des Events" });
+    res.status(500).json({ message: "Fehler beim Löschen" });
   }
 });
 
