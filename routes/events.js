@@ -1,5 +1,5 @@
 import express from "express";
-import Event from "../models/event.js";
+import Event from "../models/Event.js";
 import authMiddleware from "../middleware/auth.js"; // ✅ kein { } mehr
 
 const router = express.Router();
