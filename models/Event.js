@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 
 const eventSchema = new mongoose.Schema({
   title: { type: String, required: true },
-  start: { type: String, required: true },
-  end: { type: String, required: true },
+  start: { type: String, required: true }, // Startdatum
+  end: { type: String, required: true },   // Enddatum
   type: { type: String, enum: ["public", "private", "group"], default: "public" },
   group: { type: String },
   desc: { type: String },
