@@ -4,44 +4,67 @@ import authMiddleware from "../middleware/auth.js"; // ✅ kein { } mehr
 
 const router = express.Router();
 
-// Alle Einträge (öffentlich)
+// 📖 Alle Einträge abrufen (öffentlich)
 router.get("/", async (req, res) => {
-  const entries = await WikiEntry.find().sort({ createdAt: -1 });
-  res.json(entries);
+  try {
+    const entries = await WikiEntry.find().sort({ updatedAt: -1 });
+    res.json(entries);
+  } catch (err) {
+    console.error("Fehler beim Laden:", err);
+    res.status(500).json({ message: "Serverfehler" });
+  }
 });
 
-// Neuer Eintrag (nur Chief oder Ausbilder)
-router.post("/", authMiddleware, async (req, res) => {
-  if (req.user.rank !== "Chief" && req.user.rank !== "Ausbilder")
-    return res.status(403).json({ message: "Keine Berechtigung" });
-
+// ➕ Neuer Eintrag (Chief/Ausbilder)
+router.post("/", verifyToken, requireRole("Chief", "Ausbilder"), async (req, res) => {
   const { title, content } = req.body;
-  const entry = new WikiEntry({
-    title,
-    content,
-    authorName: req.user.name,
-    authorRank: req.user.rank,
-  });
-  await entry.save();
-  res.json(entry);
+  if (!title || !content)
+    return res.status(400).json({ message: "Titel und Inhalt erforderlich" });
+
+  try {
+    const newEntry = new WikiEntry({
+      title,
+      content,
+      author: req.user.name,
+    });
+    await newEntry.save();
+    res.json(newEntry);
+  } catch (err) {
+    console.error("Fehler beim Erstellen:", err);
+    res.status(500).json({ message: "Serverfehler" });
+  }
 });
 
-// Eintrag bearbeiten
-router.put("/:id", authMiddleware, async (req, res) => {
-  if (req.user.rank !== "Chief" && req.user.rank !== "Ausbilder")
-    return res.status(403).json({ message: "Keine Berechtigung" });
+// ✏️ Eintrag bearbeiten
+router.put("/:id", verifyToken, requireRole("Chief", "Ausbilder"), async (req, res) => {
+  const { id } = req.params;
+  const { title, content } = req.body;
 
-  const entry = await WikiEntry.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(entry);
+  try {
+    const updated = await WikiEntry.findByIdAndUpdate(
+      id,
+      { title, content },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Eintrag nicht gefunden" });
+    res.json(updated);
+  } catch (err) {
+    console.error("Fehler beim Aktualisieren:", err);
+    res.status(500).json({ message: "Serverfehler" });
+  }
 });
 
-// Eintrag löschen
-router.delete("/:id", authMiddleware, async (req, res) => {
-  if (req.user.rank !== "Chief" && req.user.rank !== "Ausbilder")
-    return res.status(403).json({ message: "Keine Berechtigung" });
-
-  await WikiEntry.findByIdAndDelete(req.params.id);
-  res.json({ message: "Eintrag gelöscht" });
+// ❌ Eintrag löschen
+router.delete("/:id", verifyToken, requireRole("Chief", "Ausbilder"), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = await WikiEntry.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Eintrag nicht gefunden" });
+    res.json({ message: "Eintrag gelöscht" });
+  } catch (err) {
+    console.error("Fehler beim Löschen:", err);
+    res.status(500).json({ message: "Serverfehler" });
+  }
 });
 
 export default router;
