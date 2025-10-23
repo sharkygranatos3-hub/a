@@ -1,55 +1,76 @@
-import express from 'express';
-import Event from '../models/Event.js';
-import authMiddleware from "../middleware/auth.js"; // ✅ kein { } mehr
+import express from "express";
+import Event from "../models/Event.js";
+import { authMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // Alle Events abrufen
-router.get('/', authMiddleware, async (req,res)=>{
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const events = await Event.find().sort({startDate:1});
+    const events = await Event.find().sort({ start: 1 });
     res.json(events);
-  } catch(e){ res.status(500).json({error:e.message}); }
+  } catch (err) {
+    res.status(500).json({ message: "Fehler beim Laden der Events" });
+  }
 });
 
-// Event erstellen
-router.post('/', authMiddleware, async (req,res)=>{
+// Neues Event erstellen
+router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { title, startDate, endDate, type, group, description } = req.body;
-    const event = new Event({
-      title, startDate, endDate, type, group, description,
-      createdBy: req.user.name,
-      creatorId: req.user.id
+    const { title, start, end, type, group, desc } = req.body;
+    const user = req.user;
+    const newEvent = new Event({
+      title,
+      start,
+      end,
+      type,
+      group,
+      desc,
+      owner: user.id,
+      ownerName: user.name
     });
-    await event.save();
-    res.json(event);
-  } catch(e){ res.status(500).json({error:e.message}); }
+    await newEvent.save();
+    res.status(201).json(newEvent);
+  } catch (err) {
+    res.status(500).json({ message: "Fehler beim Erstellen des Events" });
+  }
 });
 
 // Event bearbeiten
-router.put('/:id', authMiddleware, async (req,res)=>{
-  try{
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
     const event = await Event.findById(req.params.id);
-    if(!event) return res.status(404).json({error:"Event nicht gefunden"});
-    if(event.creatorId !== req.user.id && !['Chief','Ausbilder'].includes(req.user.rank)){
-      return res.status(403).json({error:"Keine Berechtigung"});
+    if (!event) return res.status(404).json({ message: "Event nicht gefunden" });
+
+    // Berechtigungen
+    if (event.owner !== req.user.id && !["Chief", "Instructor"].includes(req.user.rank)) {
+      return res.status(403).json({ message: "Keine Berechtigung" });
     }
-    const updated = await Event.findByIdAndUpdate(req.params.id, req.body, {new:true});
-    res.json(updated);
-  } catch(e){ res.status(500).json({error:e.message}); }
+
+    Object.assign(event, req.body);
+    await event.save();
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ message: "Fehler beim Bearbeiten" });
+  }
 });
 
 // Event löschen
-router.delete('/:id', authMiddleware, async (req,res)=>{
-  try{
+router.delete("/:id", authMiddleware, async (req, res) => {
+  try {
     const event = await Event.findById(req.params.id);
-    if(!event) return res.status(404).json({error:"Event nicht gefunden"});
-    if(event.creatorId !== req.user.id && !['Chief','Ausbilder'].includes(req.user.rank)){
-      return res.status(403).json({error:"Keine Berechtigung"});
+    if (!event) return res.status(404).json({ message: "Event nicht gefunden" });
+
+    // Nur Chief, Ausbilder oder Eigentümer dürfen löschen
+    if (event.owner !== req.user.id && !["Chief", "Instructor"].includes(req.user.rank)) {
+      return res.status(403).json({ message: "Keine Berechtigung" });
     }
-    await Event.findByIdAndDelete(req.params.id);
-    res.json({message:"Gelöscht"});
-  } catch(e){ res.status(500).json({error:e.message}); }
+
+    await event.deleteOne();
+    res.json({ message: "Event gelöscht" });
+  } catch (err) {
+    res.status(500).json({ message: "Fehler beim Löschen" });
+  }
 });
 
 export default router;
