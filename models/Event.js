@@ -1,14 +1,15 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const eventSchema = new mongoose.Schema({
   title: { type: String, required: true },
-  startDate: { type: String, required: true }, // YYYY-MM-DD
-  endDate: { type: String, required: true },   // YYYY-MM-DD
-  type: { type: String, enum: ['public','private','group'], default: 'public' },
-  group: { type: String, default: '' },
-  description: { type: String, default: '' },
-  createdBy: { type: String, required: true }, // Name des Erstellers
-  creatorId: { type: String, required: true }, // ID des Erstellers
-}, { timestamps: true });
+  start: { type: String, required: true },  // ISO-Format YYYY-MM-DD
+  end: { type: String, required: true },
+  type: { type: String, enum: ["public", "private", "group"], default: "public" },
+  group: { type: String, default: "" },
+  desc: { type: String, default: "" },
+  owner: { type: String, required: true }, // Benutzer-ID oder Name
+  ownerName: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 
-export default mongoose.model('Event', eventSchema);
+export default mongoose.model("Event", eventSchema);
