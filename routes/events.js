@@ -18,6 +18,11 @@ router.get("/", authMiddleware, async (req, res) => {
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { title, start, end, type, group, desc } = req.body;
+
+    const userId = req.user.id || req.user._id || req.user.userId;
+    const userName = req.user.name || req.user.username || "Unbekannt";
+    const userRank = req.user.rank || "Officer";
+
     const newEvent = new Event({
       title,
       start,
@@ -25,10 +30,11 @@ router.post("/", authMiddleware, async (req, res) => {
       type,
       group,
       desc,
-      owner: req.user.id,
-      ownerName: req.user.name,
-      ownerRank: req.user.rank
+      owner: userId,
+      ownerName: userName,
+      ownerRank: userRank,
     });
+
     await newEvent.save();
     res.json(newEvent);
   } catch (err) {
@@ -36,6 +42,7 @@ router.post("/", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Fehler beim Erstellen" });
   }
 });
+
 
 // Event bearbeiten
 router.put("/:id", authMiddleware, async (req, res) => {
